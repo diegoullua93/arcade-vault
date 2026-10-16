@@ -14,7 +14,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arcade Vault",
+  title: "Arcade Vault · Portal Retro",
   description:
     "Juega online y compite por la mayor cantidad de puntos en la bóveda arcade.",
 };
