@@ -17,8 +17,10 @@
   --bronze: #d97a3a;
   --line: rgba(0, 245, 255, 0.18);
   --line-2: rgba(255, 255, 255, 0.06);
-  --pixel: var(--font-press-start), system-ui, monospace;
-  --mono: var(--font-jetbrains), "Courier Prime", "Courier New", monospace;
+  /* Pila idéntica a la del template. Se usan los nombres literales (no --font-*) para evitar el
+     "Fallback" reescalado de next/font, que cambia el tamaño de glifos como ▲ o ⌕. */
+  --pixel: "Press Start 2P", system-ui, monospace;
+  --mono: "JetBrains Mono", "Courier Prime", "Courier New", monospace;
 }
 
 /* Tokens disponibles como utilidades: bg-bg-2, text-cyan, border-line, font-pixel, ... */
@@ -330,6 +332,8 @@
 .av-search:focus-within { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,245,255,0.35); }
 .av-search input {
   flex: 1; background: transparent; border: 0; outline: 0;
+  /* el template no pasa por el preflight de Tailwind: conserva el padding nativo del input */
+  padding: 1px 2px;
   color: var(--ink); font-size: 13px; letter-spacing: 0.04em;
 }
 .av-search input::placeholder { color: var(--ink-faint); }
