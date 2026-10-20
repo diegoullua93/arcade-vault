@@ -163,6 +163,7 @@ Antes de empezar: releer en `node_modules/next/dist/docs/` lo relativo a Server 
 - **Sí:** referencia de Playwright = `arcade-vault-standalone.html` servido estáticamente. Ya se comprobó que abre en la ruta `home` y renderiza el landing completo.
 - **No:** reconstruir un `index.html` con los `.jsx` sueltos. En `home-about` falta el `App` y los datos, y la reconstrucción añade trabajo sin ganar fidelidad.
 - **Sí:** comparar posiciones y tamaños con `getBoundingClientRect` además de capturas, porque las animaciones (siluetas flotantes, ticker, `pulse`) hacen que los píxeles no sean reproducibles.
+- **Sí:** tras terminar el plan, `app/page.tsx` se refactorizó a un componente por sección en `components/home/` (`hero-section`, `why-section`, `games-section`, `stats-section`, `activity-section`, `pricing-section`, `final-cta-section`) más `section-head` para el encabezado compartido. Cada sección importa sus propios datos de `lib/`. Se pidió fuera del plan original; se verificó que el HTML renderizado de `<main>` es idéntico antes y después.
 
 ## Risks
 
@@ -172,6 +173,7 @@ Antes de empezar: releer en `node_modules/next/dist/docs/` lo relativo a Server 
 | `.reveal` oculta el contenido (opacidad 0) si el JS no carga o falla | Aceptado para el MVP; el contenido se revela al hidratar. Con `prefers-reduced-motion` se muestra sin animación |
 | Capturas no reproducibles por animaciones continuas | Comparar rectángulos y, para las capturas, forzar `in` en `.reveal` y revisar visualmente |
 | Diferencias de render entre el CSS del template y Tailwind v4 (ocurrió en el SPEC 01: padding del `input`, fuentes de respaldo de `next/font`) | Usar los nombres literales de fuente ya definidos en `globals.css` y revisar con Playwright inputs, botones y glifos especiales (▶, ✦, ▼, ✔) |
+| Los `@keyframes` del template chocan con los de Tailwind v4 (`pulse` y `bounce`), que se emiten sin capa y ganan sobre los de `@layer components`: los botones `.pulse` animaban `opacity` en vez de `box-shadow` | Se renombraron a `av-pulse` y `av-bounce`. Usar el prefijo `av-` en cualquier animación nueva y comprobar con estilos computados que `animation-name` es el esperado |
 | El dev server sirve CSS viejo tras editar `globals.css` | Borrar `.next` y reiniciar `npm run dev` antes de validar |
 | El bundle standalone tarda en descomprimir | Esperar a que aparezca `.home` en el DOM antes de medir |
 

@@ -277,8 +277,8 @@
 .btn.ghost:hover { color: var(--ink); border-color: var(--ink-dim); box-shadow: none; }
 .btn.lg { padding: 16px 28px; font-size: 12px; }
 .btn.xl { padding: 20px 36px; font-size: 14px; letter-spacing: 0.2em; }
-.btn.pulse { animation: pulse 1.6s ease-in-out infinite; }
-@keyframes pulse {
+.btn.pulse { animation: av-pulse 1.6s ease-in-out infinite; }
+@keyframes av-pulse {
   0%, 100% { box-shadow: 0 0 0 transparent, inset 0 0 0 transparent; }
   50% { box-shadow: 0 0 20px var(--cyan), inset 0 0 12px rgba(0,245,255,0.45); }
 }
@@ -1024,8 +1024,8 @@
   font-family: var(--pixel); font-size: 9px; letter-spacing: 0.2em; color: var(--ink-faint);
   display: flex; flex-direction: column; align-items: center; gap: 8px;
 }
-.hero-scroll .arrow { color: var(--cyan); animation: bounce 1.6s ease-in-out infinite; }
-@keyframes bounce { 50% { transform: translateY(6px); } }
+.hero-scroll .arrow { color: var(--cyan); animation: av-bounce 1.6s ease-in-out infinite; }
+@keyframes av-bounce { 50% { transform: translateY(6px); } }
 
 .home-silos { position: absolute; inset: 0; z-index: 1; pointer-events: none; opacity: 0.55; }
 .home-silos .silo { position: absolute; filter: drop-shadow(0 0 10px currentColor); animation: float 6s ease-in-out infinite; image-rendering: pixelated; }
