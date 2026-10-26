@@ -1,6 +1,6 @@
 # SPEC 03 — Pantalla "Acerca de" y envío real del formulario de contacto
 
-> **Status:** aprobado
+> **Status:** implemented
 > **Depends on:** SPEC 01, SPEC 02
 > **Date:** 2026-10-20
 > **Objective:** Implementar la ruta `/acerca-de` según `references/templates/home-about/about.jsx` y hacer que su formulario de contacto envíe un correo real al equipo con Resend mediante una Server Action.

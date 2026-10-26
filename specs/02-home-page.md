@@ -1,6 +1,6 @@
 # SPEC 02 — Pantalla Home (landing) de Arcade Vault
 
-> **Status:** approved
+> **Status:** implemented
 > **Depends on:** SPEC 01
 > **Date:** 2026-10-20
 > **Objective:** Implementar la landing `/` según `references/templates/home-about`, mover la Biblioteca a `/biblioteca` y validar el resultado con Playwright contra la referencia.
