@@ -1,15 +1,23 @@
-import { Library } from "@/components/library";
+import { ActivitySection } from "@/components/home/activity-section";
+import { FinalCtaSection } from "@/components/home/final-cta-section";
+import { GamesSection } from "@/components/home/games-section";
+import { HeroSection } from "@/components/home/hero-section";
+import { PricingSection } from "@/components/home/pricing-section";
+import { StatsSection } from "@/components/home/stats-section";
+import { WhySection } from "@/components/home/why-section";
 
 export default function Home() {
   return (
-    <main className="av-main fade-in">
-      <section className="av-hero">
-        <h1 className="flicker">ARCADE VAULT</h1>
-        <div className="sub">
-          INSERTA UNA MONEDA PARA JUGAR <span className="blink">_</span>
-        </div>
-      </section>
-      <Library />
+    <main className="av-main">
+      <div className="home fade-in">
+        <HeroSection />
+        <WhySection />
+        <GamesSection />
+        <StatsSection />
+        <ActivitySection />
+        <PricingSection />
+        <FinalCtaSection />
+      </div>
     </main>
   );
 }
