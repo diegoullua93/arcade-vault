@@ -85,8 +85,9 @@ Antes de empezar: leer en `node_modules/next/dist/docs/` lo relativo a variables
 
 - [ ] `.env.example` contiene `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` sin valor, y conserva las variables de Resend.
 - [ ] `git check-ignore .env.local` devuelve la ruta (está ignorado).
-- [ ] Ningún archivo versionado contiene la URL real del proyecto ni una cadena `sb_publishable_` ni `sb_secret_`.
-- [ ] El repo no contiene ninguna variable `SUPABASE_SECRET_KEY` ni `service_role`.
+- [ ] Ninguna clave real está versionada: `git grep -E "sb_(publishable|secret)_[A-Za-z0-9_-]{20,}"` no devuelve resultados en todo el repo.
+- [ ] La URL del proyecto no está escrita en el código ni en las plantillas de entorno: `git grep -n "\.supabase\.co" -- app components lib .env.example .env.template` no devuelve resultados.
+- [ ] No se define ni se usa una clave privilegiada: `git grep -nE "^\s*SUPABASE_(SECRET_KEY|SERVICE_ROLE_KEY)=|process\.env\.SUPABASE_|service_role" -- app components lib .env.template` no devuelve resultados.
 
 **Clientes**
 
