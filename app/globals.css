@@ -700,6 +700,26 @@
   background: var(--green); box-shadow: 0 0 6px var(--green);
 }
 
+/* estados del marco CRT (GameScreen) */
+.crt[data-status="paused"] .crt-bottom .led { color: var(--yellow); }
+.crt[data-status="paused"] .crt-bottom .led::before {
+  background: var(--yellow); box-shadow: 0 0 6px var(--yellow);
+  animation: av-led-blink 1.2s steps(2, jump-none) infinite;
+}
+.crt[data-status="gameover"] .crt-bottom .led { color: var(--magenta); }
+.crt[data-status="gameover"] .crt-bottom .led::before {
+  background: var(--magenta); box-shadow: 0 0 6px var(--magenta);
+}
+@keyframes av-led-blink { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) {
+  .crt[data-status="paused"] .crt-bottom .led::before { animation: none; }
+}
+@media (max-width: 640px) {
+  .av-player { padding: 0 16px 48px; }
+  .crt { padding: 12px; border-radius: 18px; }
+  .crt-bottom { flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+}
+
 /* fake in-screen game */
 .game-arena {
   position: absolute; inset: 0;

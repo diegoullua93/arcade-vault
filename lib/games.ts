@@ -112,6 +112,8 @@ export const CATS: ("TODOS" | GameCategory)[] = [
   "VERSUS",
 ];
 
+export const PLAYABLE_GAME_IDS: readonly string[] = ["asteroids"];
+
 export function getGame(id: string): Game | undefined {
   return GAMES.find((g) => g.id === id);
 }

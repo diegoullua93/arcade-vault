@@ -14,6 +14,13 @@ const ENGINES: Record<
   asteroids: createAsteroidsGame,
 };
 
+const LED_LABEL: Record<GameHud["status"], string> = {
+  playing: "SEÑAL OK",
+  dead: "SEÑAL OK",
+  paused: "EN PAUSA",
+  gameover: "FIN DE PARTIDA",
+};
+
 const INITIAL_HUD: GameHud = {
   score: 0,
   lives: 3,
@@ -68,7 +75,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
           </div>
         </div>
 
-        <div className="crt">
+        <div className="crt" data-status={hud.status}>
           <div className="crt-screen">
             <canvas
               ref={canvasRef}
@@ -78,7 +85,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
             />
           </div>
           <div className="crt-bottom">
-            <span className="led">SEÑAL OK</span>
+            <span className="led">{LED_LABEL[hud.status]}</span>
             <span>{game.title} · CRT-83 · 60 HZ</span>
             <span>CARGA · 1MB</span>
           </div>
