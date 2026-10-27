@@ -31,8 +31,23 @@ export function createAsteroidsGame(
   const keys: Keys = {};
   const justPressed: Keys = {};
 
+  const BLOCKED_KEYS = [
+    "ArrowLeft",
+    "ArrowRight",
+    "ArrowUp",
+    "ArrowDown",
+    "Space",
+  ];
+
   const onKeyDown = (e: KeyboardEvent) => {
-    if (!keys[e.code]) justPressed[e.code] = true;
+    if (BLOCKED_KEYS.includes(e.code)) e.preventDefault();
+
+    if (e.code === "KeyP" || e.code === "Escape") {
+      if (!e.repeat) (paused ? resume : pause)();
+      return;
+    }
+
+    if (!keys[e.code] && !paused) justPressed[e.code] = true;
     keys[e.code] = true;
   };
   const onKeyUp = (e: KeyboardEvent) => {
@@ -59,12 +74,19 @@ export function createAsteroidsGame(
   let powerUpSpawned = false;
   let killsSinceSpawn = 0;
 
+  // La pausa no toca `state`: al reanudar se vuelve a playing o dead
+  let paused = false;
   let lastTime: number | null = null;
   let rafId = 0;
   let lastHud: GameHud | null = null;
 
   function emitHud() {
-    const hud: GameHud = { score, lives, level, status: state };
+    const hud: GameHud = {
+      score,
+      lives,
+      level,
+      status: paused ? "paused" : state,
+    };
     if (
       lastHud &&
       lastHud.score === hud.score &&
@@ -248,6 +270,12 @@ export function createAsteroidsGame(
     if (state === "gameover") {
       drawOverlay("GAME OVER", `PUNTAJE: ${score}   —   ESPACIO PARA REINICIAR`);
     }
+
+    if (paused) {
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(0, 0, W, H);
+      drawOverlay("PAUSA", "P / ESC PARA CONTINUAR");
+    }
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -260,25 +288,60 @@ export function createAsteroidsGame(
     rafId = requestAnimationFrame(loop);
   }
 
+  function startLoop() {
+    cancelAnimationFrame(rafId);
+    lastTime = null; // el primer dt tras reanudar es 0
+    rafId = requestAnimationFrame(loop);
+  }
+
+  function pause() {
+    if (paused) return;
+    paused = true;
+    cancelAnimationFrame(rafId);
+    draw(); // un último frame con el overlay
+    emitHud();
+  }
+
+  function resume() {
+    if (!paused) return;
+    paused = false;
+    justPressed["Space"] = false;
+    emitHud();
+    startLoop();
+  }
+
+  const onBlur = () => {
+    // Se pierden los keyup mientras la ventana no tiene foco
+    for (const code of Object.keys(keys)) keys[code] = false;
+    pause();
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) pause();
+  };
+
   initGame();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
-  rafId = requestAnimationFrame(loop);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibilityChange);
+  startLoop();
 
   return {
-    // Se implementan en el paso 5 (pausa, foco y scroll)
-    pause() {},
-    resume() {},
+    pause,
+    resume,
     restart() {
       initGame();
-      lastTime = null;
+      paused = false;
       emitHud();
+      startLoop();
     },
     destroy() {
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     },
   };
 }
