@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useRef, type MouseEvent } from "react";
-import type { LegacyGame } from "@/lib/games";
+import type { GameWithStats } from "@/lib/games";
 
-const BTN_COLOR: Record<LegacyGame["color"], string> = {
+const BTN_COLOR: Record<GameWithStats["color"], string> = {
   cyan: "",
   green: "",
   magenta: " magenta",
   yellow: " yellow",
 };
 
-export function GameCard({ game }: { game: LegacyGame }) {
+export function GameCard({ game }: { game: GameWithStats }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   const onMove = (e: MouseEvent<HTMLAnchorElement>) => {
@@ -44,7 +44,7 @@ export function GameCard({ game }: { game: LegacyGame }) {
         <div className="row">
           <div className="score-badge">
             <span>MEJOR PUNTUACIÓN</span>
-            <b>{game.best.toLocaleString("es-ES")}</b>
+            <b>{game.plays > 0 ? game.best.toLocaleString("es-ES") : "—"}</b>
           </div>
           <span className={"btn" + BTN_COLOR[game.color]}>JUGAR</span>
         </div>

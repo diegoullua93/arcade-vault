@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { PlayerName } from "@/components/player-name";
-import { getGame } from "@/lib/games";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
 import type { GameCallbacks, GameHud, GameInstance } from "@/lib/games/types";
 
@@ -28,8 +27,7 @@ const INITIAL_HUD: GameHud = {
   status: "playing",
 };
 
-export function GameScreen({ gameId }: { gameId: string }) {
-  const game = getGame(gameId);
+export function GameScreen({ gameId, title }: { gameId: string; title: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hud, setHud] = useState<GameHud>(INITIAL_HUD);
 
@@ -41,8 +39,6 @@ export function GameScreen({ gameId }: { gameId: string }) {
     const instance = createGame(canvas, { onHudChange: setHud });
     return () => instance.destroy();
   }, [gameId]);
-
-  if (!game) return null;
 
   return (
     <main className="av-main">
@@ -69,7 +65,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
             </div>
           </div>
           <div className="hud-actions">
-            <Link href={`/juegos/${game.id}`} className="btn ghost">
+            <Link href={`/juegos/${gameId}`} className="btn ghost">
               SALIR
             </Link>
           </div>
@@ -86,7 +82,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
           </div>
           <div className="crt-bottom">
             <span className="led">{LED_LABEL[hud.status]}</span>
-            <span>{game.title} · CRT-83 · 60 HZ</span>
+            <span>{title} · CRT-83 · 60 HZ</span>
             <span>CARGA · 1MB</span>
           </div>
         </div>

@@ -25,7 +25,7 @@ async function GamePlayer({ params }: { params: PageProps<"/juegos/[id]/jugar">[
   if (!game) notFound();
 
   if (PLAYABLE_GAME_IDS.includes(game.id)) {
-    return <GameScreen gameId={game.id} />;
+    return <GameScreen gameId={game.id} title={game.title} />;
   }
 
   return (
