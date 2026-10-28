@@ -726,8 +726,33 @@
   background: var(--magenta); box-shadow: 0 0 6px var(--magenta);
 }
 @keyframes av-led-blink { 50% { opacity: 0.25; } }
+
+/* estado de guardado de la puntuación (GameScreen), en la barra inferior del marco */
+.crt-bottom .save-status { display: inline-flex; align-items: center; gap: 10px; }
+.crt-bottom .save-status[data-state="saving"] { color: var(--yellow); }
+.crt-bottom .save-status[data-state="saving"]::before {
+  content: ""; width: 6px; height: 6px; background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+  animation: av-led-blink 1.2s steps(2, jump-none) infinite;
+}
+.crt-bottom .save-status[data-state="saved"] { color: var(--green); text-shadow: 0 0 6px var(--green); }
+.crt-bottom .save-status[data-state="error"] { color: var(--magenta); text-shadow: 0 0 6px var(--magenta); }
+.crt-bottom .save-retry {
+  font: inherit; letter-spacing: inherit; color: var(--cyan);
+  background: none; border: 1px solid currentColor; padding: 3px 8px;
+  cursor: pointer; text-shadow: none;
+}
+.crt-bottom .save-retry:hover, .crt-bottom .save-retry:focus-visible {
+  box-shadow: 0 0 8px var(--cyan);
+}
+.crt-bottom .save-link {
+  color: var(--yellow); text-decoration: underline; text-underline-offset: 3px;
+}
+.crt-bottom .save-link:hover, .crt-bottom .save-link:focus-visible { color: var(--cyan); }
+
 @media (prefers-reduced-motion: reduce) {
-  .crt[data-status="paused"] .crt-bottom .led::before { animation: none; }
+  .crt[data-status="paused"] .crt-bottom .led::before,
+  .crt-bottom .save-status[data-state="saving"]::before { animation: none; }
 }
 @media (max-width: 640px) {
   .av-player { padding: 0 16px 48px; }
