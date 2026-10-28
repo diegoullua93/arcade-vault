@@ -75,7 +75,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
           </div>
         </div>
 
-        <div className="crt" data-status={hud.status}>
+        <div className="crt crt--game" data-status={hud.status}>
           <div className="crt-screen">
             <canvas
               ref={canvasRef}

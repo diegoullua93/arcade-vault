@@ -33,7 +33,7 @@ Archivos de referencia en `references/02-asteroids/`:
 - Canvas con la escena, el overlay `GAME OVER` (con puntaje y "ESPACIO PARA REINICIAR"), el overlay `PAUSA` y el indicador `3x  N.Ns` del powerup activo.
 - Pausa con `P` o `Escape`, y pausa automática al perder foco la ventana o ocultarse la pestaña.
 - `preventDefault` sobre flechas y `Espacio` mientras el juego está montado, para que la página no se desplace.
-- Canvas escalado por CSS al ancho disponible del marco CRT manteniendo 4:3, sin cambiar la resolución interna.
+- Canvas escalado por CSS manteniendo 4:3, sin cambiar la resolución interna. El marco CRT se limita por ancho disponible y por altura del viewport (`100dvh`), para que la pantalla completa quepa sin zoom del navegador ni scroll vertical en una notebook estándar.
 - `app/juegos/[id]/jugar/page.tsx` renderiza `GameScreen` para `asteroids`; el resto de ids mantiene el placeholder actual.
 - Renombrar la entrada del catálogo: en `lib/games.ts`, `id: "rocas"` → `"asteroids"`, `title: "ROCAS"` → `"ASTEROIDS"` y `cover: "cover-rocas"` → `"cover-asteroids"`; en `app/globals.css`, selectores `.cover-rocas` → `.cover-asteroids`; en `lib/home.ts`, la actividad `game: "Rocas"` → `"Asteroids"`.
 - Nota breve en `CLAUDE.md` (Architecture notes) sobre `lib/games/` y el patrón del motor.
@@ -171,7 +171,7 @@ Antes de empezar: leer en `node_modules/next/dist/docs/` lo relativo a Client Co
 
 **Visual (manual)**
 
-- [ ] A 1440×900 el canvas llena el ancho del marco CRT manteniendo 4:3.
+- [ ] A 1440×900 y a 1366×650 el canvas se ve completo (pantalla y barra inferior del marco) sin scroll vertical, manteniendo 4:3.
 - [ ] A 390×844 el canvas no desborda horizontalmente la página y el juego se ve completo (sin controles táctiles; solo teclado).
 - [ ] Los overlays `GAME OVER` y `PAUSA` son legibles sobre la escena.
 

@@ -700,6 +700,13 @@
   background: var(--green); box-shadow: 0 0 6px var(--green);
 }
 
+/* marco del juego: la pantalla 4:3 completa cabe en la altura del viewport.
+   275px = navbar + HUD + márgenes + padding del marco; 48px = padding horizontal */
+.crt.crt--game {
+  width: min(100%, max(528px, calc((100dvh - 275px) * 4 / 3 + 48px)));
+  margin-inline: auto;
+}
+
 /* estados del marco CRT (GameScreen) */
 .crt[data-status="paused"] .crt-bottom .led { color: var(--yellow); }
 .crt[data-status="paused"] .crt-bottom .led::before {

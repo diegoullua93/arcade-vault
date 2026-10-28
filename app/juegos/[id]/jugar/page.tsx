@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
 import { GameScreen } from "@/components/game/game-screen";
 import { PlayerName } from "@/components/player-name";
 import { GAMES, PLAYABLE_GAME_IDS, getGame } from "@/lib/games";
@@ -8,7 +9,15 @@ export function generateStaticParams() {
   return GAMES.map((g) => ({ id: g.id }));
 }
 
-export default async function GamePlayerPage({ params }: PageProps<"/juegos/[id]/jugar">) {
+export default function GamePlayerPage(props: PageProps<"/juegos/[id]/jugar">) {
+  return (
+    <Suspense fallback={<main className="av-main" />}>
+      <GamePlayer params={props.params} />
+    </Suspense>
+  );
+}
+
+async function GamePlayer({ params }: { params: PageProps<"/juegos/[id]/jugar">["params"] }) {
   const { id } = await params;
   const game = getGame(id);
   if (!game) notFound();
