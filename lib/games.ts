@@ -70,12 +70,12 @@ export const GAMES: Game[] = [
     plays: "18.0K",
   },
   {
-    id: "rocas",
-    title: "ROCAS",
+    id: "asteroids",
+    title: "ASTEROIDS",
     short: "Pulveriza asteroides en gravedad cero.",
     long: "Tu nave triangular flota en vacío absoluto. Dispara y rota para dividir rocas en fragmentos cada vez más pequeños. Cuidado con los OVNIs en el horizonte.",
     cat: "SHOOTER",
-    cover: "cover-rocas",
+    cover: "cover-asteroids",
     color: "yellow",
     best: 41200,
     plays: "15.6K",
@@ -111,6 +111,8 @@ export const CATS: ("TODOS" | GameCategory)[] = [
   "SHOOTER",
   "VERSUS",
 ];
+
+export const PLAYABLE_GAME_IDS: readonly string[] = ["asteroids"];
 
 export function getGame(id: string): Game | undefined {
   return GAMES.find((g) => g.id === id);
