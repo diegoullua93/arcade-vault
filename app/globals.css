@@ -983,6 +983,12 @@
   color: var(--yellow); letter-spacing: 0.16em; background: rgba(245,255,0,0.04);
   border-bottom: 1px solid var(--line-2);
 }
+.hall-table .tr.empty {
+  display: block; text-align: center; padding: 28px 18px;
+  font-size: 12px; letter-spacing: 0.12em; color: var(--ink-dim);
+}
+.podium-slot.vacant { opacity: 0.45; box-shadow: none; }
+.podium-slot.vacant .name, .podium-slot.vacant .score { color: var(--ink-faint); text-shadow: none; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

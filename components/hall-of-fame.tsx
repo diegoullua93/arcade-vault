@@ -1,22 +1,72 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@/components/session-provider";
-import { GAMES, getGame } from "@/lib/games";
-import { seededScores } from "@/lib/scores";
+import type { Game } from "@/lib/games";
+import type { LeaderboardRow } from "@/lib/leaderboard";
+import { createClient } from "@/lib/supabase/client";
 
 const fmt = (n: number) => n.toLocaleString("es-ES");
 const pad = (n: number) => String(n).padStart(2, "0");
 
-export function HallOfFame() {
-  const { user } = useSession();
-  const [tab, setTab] = useState(GAMES[0].id);
-  const rows = useMemo(() => seededScores(tab.length * 23 + 7, 12), [tab]);
-  const game = getGame(tab)!;
+// Misma zona y locale que el servidor (lib/queries/scores.ts).
+const dateFormat = new Intl.DateTimeFormat("es-ES", {
+  timeZone: "UTC",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
-  const youRank = 8 + (tab.length % 4);
-  const youScore = rows[5].score - 2400;
+type PlayerBest = { rank: number; score: number; date: string };
+
+export function HallOfFame({
+  games,
+  rowsByGame,
+}: {
+  games: Game[];
+  rowsByGame: Record<string, LeaderboardRow[]>;
+}) {
+  const { user } = useSession();
+  const [tab, setTab] = useState(games[0]?.id ?? "");
+  const rows = rowsByGame[tab] ?? [];
+  const game = games.find((g) => g.id === tab);
+
+  // «Tu mejor marca»: el servidor no conoce el nombre de la sesión mock,
+  // así que se consulta desde el navegador tras montar.
+  const name = user?.name ?? null;
+  const key = name ? `${tab}:${name}` : null;
+  const [best, setBest] = useState<{ key: string; data: PlayerBest | null } | null>(null);
+
+  useEffect(() => {
+    if (!name || !key) return;
+    let cancelled = false;
+    createClient()
+      .rpc("get_player_best", { p_game_id: tab, p_player_name: name })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        const row = !error && data && data.length > 0 ? data[0] : null;
+        setBest({
+          key,
+          data: row
+            ? {
+                rank: row.rank,
+                score: row.score,
+                date: dateFormat.format(new Date(row.created_at)),
+              }
+            : null,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, name, key]);
+
+  const youBest = best && best.key === key ? best.data : null;
+
+  const first = rows[0];
+  const second = rows[1];
+  const third = rows[2];
 
   return (
     <div className="av-hall fade-in">
@@ -28,7 +78,7 @@ export function HallOfFame() {
       </div>
 
       <div className="hall-tabs">
-        {GAMES.map((g) => (
+        {games.map((g) => (
           <button
             key={g.id}
             className={"chip" + (tab === g.id ? " active" : "")}
@@ -40,34 +90,9 @@ export function HallOfFame() {
       </div>
 
       <div className="podium">
-        <div className="podium-slot silver">
-          <div className="rank-num">02</div>
-          <div className="name">{rows[1].name}</div>
-          <div className="score">{fmt(rows[1].score)}</div>
-          <div className="date">{rows[1].date}</div>
-        </div>
-        <div className="podium-slot gold">
-          <div
-            className="pixel"
-            style={{ fontSize: 9, color: "var(--gold)", letterSpacing: "0.18em" }}
-          >
-            CAMPEÓN
-          </div>
-          <div className="rank-num" style={{ fontSize: 36, marginTop: 4 }}>
-            01
-          </div>
-          <div className="name">{rows[0].name}</div>
-          <div className="score" style={{ fontSize: 20 }}>
-            {fmt(rows[0].score)}
-          </div>
-          <div className="date">{rows[0].date}</div>
-        </div>
-        <div className="podium-slot bronze">
-          <div className="rank-num">03</div>
-          <div className="name">{rows[2].name}</div>
-          <div className="score">{fmt(rows[2].score)}</div>
-          <div className="date">{rows[2].date}</div>
-        </div>
+        <PodiumSlot className="silver" rank="02" row={second} />
+        <PodiumSlot className="gold" rank="01" row={first} champion />
+        <PodiumSlot className="bronze" rank="03" row={third} />
       </div>
 
       <div className="hall-table">
@@ -77,6 +102,11 @@ export function HallOfFame() {
           <div>PUNTUACIÓN</div>
           <div>FECHA</div>
         </div>
+        {rows.length === 0 && (
+          <div className="tr empty">
+            AÚN NO HAY PUNTUACIONES EN {game?.title}. ¡SÉ EL PRIMERO EN LA TABLA!
+          </div>
+        )}
         {rows.map((r, i) => (
           <div
             key={tab + r.name}
@@ -89,20 +119,15 @@ export function HallOfFame() {
             <div className="dt">{r.date}</div>
           </div>
         ))}
-        {user && (
+        {youBest && (
           <>
-            <div className="tr you-label">
-              ▸ TU MEJOR MARCA EN {game.title}
-            </div>
-            <div
-              className="tr you"
-              style={{ animationDelay: `${rows.length * 50 + 50}ms` }}
-            >
+            <div className="tr you-label">▸ TU MEJOR MARCA EN {game?.title}</div>
+            <div className="tr you" style={{ animationDelay: `${rows.length * 50 + 50}ms` }}>
               <div className="rk" style={{ color: "var(--yellow)" }}>
-                #{pad(youRank)}
+                #{pad(youBest.rank)}
               </div>
               <div className="pl" style={{ color: "var(--yellow)" }}>
-                {user.name}
+                {name}
               </div>
               <div
                 className="sc"
@@ -111,9 +136,9 @@ export function HallOfFame() {
                   textShadow: "0 0 6px rgba(245,255,0,0.5)",
                 }}
               >
-                {fmt(youScore)}
+                {fmt(youBest.score)}
               </div>
-              <div className="dt">11/05/2026</div>
+              <div className="dt">{youBest.date}</div>
             </div>
           </>
         )}
@@ -124,6 +149,39 @@ export function HallOfFame() {
           VOLVER A LA BIBLIOTECA
         </Link>
       </div>
+    </div>
+  );
+}
+
+function PodiumSlot({
+  className,
+  rank,
+  row,
+  champion = false,
+}: {
+  className: string;
+  rank: string;
+  row: LeaderboardRow | undefined;
+  champion?: boolean;
+}) {
+  return (
+    <div className={"podium-slot " + className + (row ? "" : " vacant")}>
+      {champion && (
+        <div
+          className="pixel"
+          style={{ fontSize: 9, color: "var(--gold)", letterSpacing: "0.18em" }}
+        >
+          CAMPEÓN
+        </div>
+      )}
+      <div className="rank-num" style={champion ? { fontSize: 36, marginTop: 4 } : undefined}>
+        {rank}
+      </div>
+      <div className="name">{row ? row.name : "VACANTE"}</div>
+      <div className="score" style={champion ? { fontSize: 20 } : undefined}>
+        {row ? fmt(row.score) : "—"}
+      </div>
+      <div className="date">{row ? row.date : ""}</div>
     </div>
   );
 }
