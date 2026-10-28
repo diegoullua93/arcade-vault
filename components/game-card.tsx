@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { useRef, type MouseEvent } from "react";
-import type { Game } from "@/lib/games";
+import type { LegacyGame } from "@/lib/games";
 
-const BTN_COLOR: Record<Game["color"], string> = {
+const BTN_COLOR: Record<LegacyGame["color"], string> = {
   cyan: "",
   green: "",
   magenta: " magenta",
   yellow: " yellow",
 };
 
-export function GameCard({ game }: { game: Game }) {
+export function GameCard({ game }: { game: LegacyGame }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   const onMove = (e: MouseEvent<HTMLAnchorElement>) => {

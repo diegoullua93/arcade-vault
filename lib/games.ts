@@ -9,11 +9,20 @@ export type Game = {
   cat: GameCategory;
   cover: string;
   color: GameColor;
-  best: number;
-  plays: string;
 };
 
-export const GAMES: Game[] = [
+export type GameWithStats = Game & { best: number; plays: number };
+
+// Temporal: forma antigua de GAMES hasta que el paso 7 migre a los consumidores.
+export type LegacyGame = Game & { best: number; plays: string };
+
+// 987 -> "987", 12400 -> "12.4K"
+export function formatPlays(plays: number): string {
+  if (plays < 1000) return String(plays);
+  return `${(plays / 1000).toFixed(1)}K`;
+}
+
+export const GAMES: LegacyGame[] = [
   {
     id: "bloque-buster",
     title: "BLOQUE BUSTER",
@@ -114,6 +123,6 @@ export const CATS: ("TODOS" | GameCategory)[] = [
 
 export const PLAYABLE_GAME_IDS: readonly string[] = ["asteroids"];
 
-export function getGame(id: string): Game | undefined {
+export function getGame(id: string): LegacyGame | undefined {
   return GAMES.find((g) => g.id === id);
 }
