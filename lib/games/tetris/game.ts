@@ -161,8 +161,23 @@ export function createTetrisGame(
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
+  const BLOCKED_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"];
+
   const onKeyDown = (e: KeyboardEvent) => {
-    if (paused || state === "gameover") return;
+    if (BLOCKED_KEYS.includes(e.code)) e.preventDefault();
+
+    if (e.code === "KeyP" || e.code === "Escape") {
+      if (!e.repeat) (paused ? resume : pause)();
+      return;
+    }
+
+    if (paused) return;
+    if (state === "gameover") {
+      // Solo la pulsación inicial: mantener Espacio no reinicia en cadena
+      if (e.code === "Space" && !e.repeat) restart();
+      return;
+    }
+
     switch (e.code) {
       case "ArrowLeft":
         if (!collide(current.shape, current.x - 1, current.y)) current.x--;
@@ -214,6 +229,17 @@ export function createTetrisGame(
     }
   }
 
+  function drawOverlay(title: string, sub: string[]) {
+    if (!ctx) return;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 34px monospace";
+    ctx.fillText(title, W / 2, H / 2 - 18);
+    ctx.font = "14px monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    sub.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 + 14 + i * 22));
+  }
+
   function draw() {
     if (!ctx) return;
     ctx.fillStyle = "#000";
@@ -234,6 +260,16 @@ export function createTetrisGame(
     for (let r = 0; r < current.shape.length; r++)
       for (let c = 0; c < current.shape[r].length; c++)
         drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+
+    if (state === "gameover") {
+      drawOverlay("GAME OVER", [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"]);
+    }
+
+    if (paused) {
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      ctx.fillRect(0, 0, W, H);
+      drawOverlay("PAUSA", ["P / ESC PARA CONTINUAR"]);
+    }
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -253,7 +289,8 @@ export function createTetrisGame(
   }
 
   function pause() {
-    if (paused) return;
+    // En gameover no hay nada que pausar: el overlay GAME OVER se queda
+    if (paused || state === "gameover") return;
     paused = true;
     cancelAnimationFrame(rafId);
     draw();
@@ -267,23 +304,34 @@ export function createTetrisGame(
     startLoop();
   }
 
+  function restart() {
+    initGame();
+    paused = false;
+    emitHud();
+    startLoop();
+  }
+
+  const onBlur = () => pause();
+  const onVisibilityChange = () => {
+    if (document.hidden) pause();
+  };
+
   initGame();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibilityChange);
   startLoop();
 
   return {
     pause,
     resume,
-    restart() {
-      initGame();
-      paused = false;
-      emitHud();
-      startLoop();
-    },
+    restart,
     destroy() {
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     },
   };
 }
