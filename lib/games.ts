@@ -27,4 +27,4 @@ export const CATS: ("TODOS" | GameCategory)[] = [
   "VERSUS",
 ];
 
-export const PLAYABLE_GAME_IDS: readonly string[] = ["asteroids"];
+export const PLAYABLE_GAME_IDS: readonly string[] = ["asteroids", "tetris"];
