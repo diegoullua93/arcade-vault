@@ -6,14 +6,41 @@ import { saveScore } from "@/app/juegos/[id]/jugar/actions";
 import { PlayerName } from "@/components/player-name";
 import { useSession } from "@/components/session-provider";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
-import type { GameCallbacks, GameHud, GameInstance } from "@/lib/games/types";
+import { drawBlock } from "@/lib/games/tetris/entities";
+import type { GameCallbacks, GameHud, GameInstance, NextShape } from "@/lib/games/types";
 
-const ENGINES: Record<
-  string,
-  (canvas: HTMLCanvasElement, callbacks: GameCallbacks) => GameInstance
-> = {
-  asteroids: createAsteroidsGame,
+type GameConfig = {
+  create: (canvas: HTMLCanvasElement, callbacks: GameCallbacks) => GameInstance;
+  width: number; // resolución interna del canvas
+  height: number;
+  showLives: boolean;
+  showNext: boolean; // panel lateral con el canvas de la pieza siguiente
 };
+
+const GAMES_CONFIG: Record<string, GameConfig> = {
+  asteroids: {
+    create: createAsteroidsGame,
+    width: 800,
+    height: 600,
+    showLives: true,
+    showNext: false,
+  },
+};
+
+const NEXT_SIZE = 120;
+const NEXT_BLOCK = 30;
+
+// Centra la pieza en una rejilla de 4×4 bloques, como el canvas "next" de la referencia
+function drawNext(canvas: HTMLCanvasElement, shape: NextShape) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, NEXT_SIZE, NEXT_SIZE);
+  const offX = Math.floor((4 - shape[0].length) / 2);
+  const offY = Math.floor((4 - shape.length) / 2);
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      drawBlock(ctx, offX + c, offY + r, shape[r][c], NEXT_BLOCK);
+}
 
 const LED_LABEL: Record<GameHud["status"], string> = {
   playing: "SEÑAL OK",
@@ -40,7 +67,9 @@ const IDLE: SaveState = { kind: "idle" };
 
 export function GameScreen({ gameId, title }: { gameId: string; title: string }) {
   const { user } = useSession();
+  const config = GAMES_CONFIG[gameId] ?? GAMES_CONFIG.asteroids;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const nextCanvasRef = useRef<HTMLCanvasElement>(null);
   const [hud, setHud] = useState<GameHud>(INITIAL_HUD);
   const [save, setSave] = useState<SaveState>(IDLE);
 
@@ -70,10 +99,13 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const createGame = ENGINES[gameId];
+    const createGame = GAMES_CONFIG[gameId]?.create;
     if (!canvas || !createGame) return;
 
     const instance = createGame(canvas, {
+      onNextChange: (shape) => {
+        if (nextCanvasRef.current) drawNext(nextCanvasRef.current, shape);
+      },
       onHudChange: (next) => {
         setHud(next);
 
@@ -127,10 +159,12 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
               <div className="l">Puntuación</div>
               <div className="v">{hud.score}</div>
             </div>
-            <div className="hud-stat lives">
-              <div className="l">Vidas</div>
-              <div className="v">{"♥ ".repeat(hud.lives).trim() || "—"}</div>
-            </div>
+            {config.showLives && (
+              <div className="hud-stat lives">
+                <div className="l">Vidas</div>
+                <div className="v">{"♥ ".repeat(hud.lives).trim() || "—"}</div>
+              </div>
+            )}
             <div className="hud-stat level">
               <div className="l">Nivel</div>
               <div className="v">{String(hud.level).padStart(2, "0")}</div>
@@ -147,11 +181,17 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
           <div className="crt-screen">
             <canvas
               ref={canvasRef}
-              width={800}
-              height={600}
+              width={config.width}
+              height={config.height}
               style={{ display: "block", width: "100%", height: "100%" }}
             />
           </div>
+          {config.showNext && (
+            <aside className="av-next-panel">
+              <div className="l">Siguiente</div>
+              <canvas ref={nextCanvasRef} width={NEXT_SIZE} height={NEXT_SIZE} />
+            </aside>
+          )}
           <div className="crt-bottom">
             <span className="led">{LED_LABEL[hud.status]}</span>
             <span>{title} · CRT-83 · 60 HZ</span>
