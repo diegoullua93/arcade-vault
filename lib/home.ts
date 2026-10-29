@@ -1,5 +1,3 @@
-import { GAMES } from "@/lib/games";
-
 export type NeonColor = "cyan" | "magenta" | "yellow" | "green";
 
 export type Feature = {
@@ -50,11 +48,13 @@ export const FEATURES: Feature[] = [
   },
 ];
 
-export const STATS: HomeStat[] = [
-  { n: String(GAMES.length), u: "JUEGOS", s: "Y CONTANDO" },
-  { n: "MILES", u: "DE PARTIDAS", s: "JUGADAS CADA DÍA" },
-  { n: "GLOBAL", u: "RANKING", s: "COMPITE CON EL MUNDO" },
-];
+export function buildStats(gameCount: number): HomeStat[] {
+  return [
+    { n: String(gameCount), u: "JUEGOS", s: "Y CONTANDO" },
+    { n: "MILES", u: "DE PARTIDAS", s: "JUGADAS CADA DÍA" },
+    { n: "GLOBAL", u: "RANKING", s: "COMPITE CON EL MUNDO" },
+  ];
+}
 
 export const RECENT_SCORES: RecentScore[] = [
   { player: "NEONFOX", game: "Caída", score: 184220, ago: "hace 2 min", color: "magenta" },

@@ -1,21 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GAMES, getGame } from "@/lib/games";
-import { seededScores } from "@/lib/scores";
+import { Suspense } from "react";
+import { formatPlays } from "@/lib/games";
+import { getGame, getGames, getGamesWithStats } from "@/lib/queries/games";
+import { getLeaderboard } from "@/lib/queries/scores";
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ id: g.id }));
+export async function generateStaticParams() {
+  const games = await getGames();
+  return games.map((g) => ({ id: g.id }));
 }
 
-export default async function GameDetailPage({
-  params,
-}: PageProps<"/juegos/[id]">) {
-  const { id } = await params;
-  const game = getGame(id);
-  if (!game) notFound();
+export default function GameDetailPage(props: PageProps<"/juegos/[id]">) {
+  return (
+    <Suspense fallback={<main className="av-main" />}>
+      <GameDetail params={props.params} />
+    </Suspense>
+  );
+}
 
-  const seed = [...game.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const rows = seededScores(seed, 10);
+async function GameDetail({ params }: { params: PageProps<"/juegos/[id]">["params"] }) {
+  const { id } = await params;
+  const game = await getGame(id);
+  if (!game) notFound();
 
   return (
     <main className="av-main">
@@ -27,18 +33,9 @@ export default async function GameDetailPage({
 
           <div className="leaderboard">
             <h3>TOP 10 · {game.title}</h3>
-            {rows.map((r, i) => (
-              <div
-                key={r.name}
-                className={
-                  "lb-row" + (i < 3 ? ` top${i + 1}` : "")
-                }
-              >
-                <div className="rk">#{String(r.rank).padStart(2, "0")}</div>
-                <div className="pl">{r.name}</div>
-                <div className="sc">{r.score.toLocaleString("es-ES")}</div>
-              </div>
-            ))}
+            <Suspense fallback={<div className="lb-empty">CARGANDO…</div>}>
+              <TopTen gameId={game.id} />
+            </Suspense>
           </div>
         </div>
 
@@ -50,14 +47,9 @@ export default async function GameDetailPage({
           <p>{game.long}</p>
 
           <div className="stat-strip">
-            <div>
-              <div className="l">Mejor puntuación</div>
-              <div className="v">{game.best.toLocaleString("es-ES")}</div>
-            </div>
-            <div>
-              <div className="l">Partidas</div>
-              <div className="v">{game.plays}</div>
-            </div>
+            <Suspense fallback={<StatCells best="…" plays="…" />}>
+              <GameStatCells gameId={game.id} />
+            </Suspense>
             <div>
               <div className="l">Categoría</div>
               <div className="v">{game.cat}</div>
@@ -75,5 +67,49 @@ export default async function GameDetailPage({
         </div>
       </div>
     </main>
+  );
+}
+
+async function TopTen({ gameId }: { gameId: string }) {
+  const rows = await getLeaderboard(gameId, 10);
+
+  if (rows.length === 0) {
+    return <div className="lb-empty">AÚN NO HAY PUNTUACIONES. ¡SÉ EL PRIMERO EN LA TABLA!</div>;
+  }
+
+  return rows.map((r, i) => (
+    <div key={r.name} className={"lb-row" + (i < 3 ? ` top${i + 1}` : "")}>
+      <div className="rk">#{String(r.rank).padStart(2, "0")}</div>
+      <div className="pl">{r.name}</div>
+      <div className="sc">{r.score.toLocaleString("es-ES")}</div>
+    </div>
+  ));
+}
+
+async function GameStatCells({ gameId }: { gameId: string }) {
+  const games = await getGamesWithStats();
+  const stats = games.find((g) => g.id === gameId);
+  const plays = stats?.plays ?? 0;
+
+  return (
+    <StatCells
+      best={plays > 0 ? (stats?.best ?? 0).toLocaleString("es-ES") : "—"}
+      plays={formatPlays(plays)}
+    />
+  );
+}
+
+function StatCells({ best, plays }: { best: string; plays: string }) {
+  return (
+    <>
+      <div>
+        <div className="l">Mejor puntuación</div>
+        <div className="v">{best}</div>
+      </div>
+      <div>
+        <div className="l">Partidas</div>
+        <div className="v">{plays}</div>
+      </div>
+    </>
   );
 }
