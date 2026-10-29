@@ -10,6 +10,8 @@ Arcade Vault: a platform to play games online and compete for the highest scores
 
 Usa siempre /frontend-design para diseñar la interfaz de usuario
 
+Para añadir un juego (portado desde `references/` o nuevo) con su leaderboard, usa `/add-game <id> [fuente]`: genera el spec en `specs/`, que luego se implementa con `/spec-impl`.
+
 No test runner is configured yet.
 
 ## Next.js version warning
