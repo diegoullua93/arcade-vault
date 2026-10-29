@@ -715,6 +715,54 @@
   margin-inline: auto;
 }
 
+/* marco vertical (Tetris): tablero 1:2 y mini-pantalla de la pieza siguiente a su lado.
+   El alto del tablero usa el mismo presupuesto que el marco 4:3 (100dvh - 275px) con tope en 600px */
+.crt.crt--game.crt--side {
+  --av-board-h: clamp(360px, calc(100dvh - 275px), 600px);
+  display: grid;
+  grid-template-columns: auto 132px;
+  grid-template-areas: "screen side" "bottom bottom";
+  column-gap: 18px;
+  align-items: start;
+  width: fit-content;
+  max-width: 100%;
+}
+.crt--side .crt-screen {
+  grid-area: screen;
+  width: calc(var(--av-board-h) / 2);
+  aspect-ratio: 1 / 2;
+}
+.crt--side .crt-bottom {
+  grid-area: bottom;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.av-next-panel {
+  grid-area: side;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.av-next-panel .l {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+/* misma mini-pantalla que .crt-screen: vidrio negro, inset y scanlines */
+.av-next-screen {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: 8px / 16px;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 12px rgba(0,245,255,0.15);
+}
+.av-next-screen canvas { display: block; width: 100%; height: 100%; }
+.av-next-screen::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 4px);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
 /* estados del marco CRT (GameScreen) */
 .crt[data-status="paused"] .crt-bottom .led { color: var(--yellow); }
 .crt[data-status="paused"] .crt-bottom .led::before {
@@ -758,6 +806,11 @@
   .av-player { padding: 0 16px 48px; }
   .crt { padding: 12px; border-radius: 18px; }
   .crt-bottom { flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  /* 32px = gutter de la página; 24px = padding del marco; 88px + 12px = panel y hueco */
+  .crt.crt--game.crt--side { grid-template-columns: auto 88px; column-gap: 12px; }
+  .crt--side .crt-screen {
+    width: min(calc(var(--av-board-h) / 2), calc(100vw - 32px - 24px - 100px));
+  }
 }
 
 /* fake in-screen game */

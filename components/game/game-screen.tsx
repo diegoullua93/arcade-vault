@@ -177,7 +177,10 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
           </div>
         </div>
 
-        <div className="crt crt--game" data-status={hud.status}>
+        <div
+          className={`crt crt--game${config.showNext ? " crt--side" : ""}`}
+          data-status={hud.status}
+        >
           <div className="crt-screen">
             <canvas
               ref={canvasRef}
@@ -187,9 +190,11 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
             />
           </div>
           {config.showNext && (
-            <aside className="av-next-panel">
+            <aside className="av-next-panel" aria-label="Pieza siguiente">
               <div className="l">Siguiente</div>
-              <canvas ref={nextCanvasRef} width={NEXT_SIZE} height={NEXT_SIZE} />
+              <div className="av-next-screen">
+                <canvas ref={nextCanvasRef} width={NEXT_SIZE} height={NEXT_SIZE} />
+              </div>
             </aside>
           )}
           <div className="crt-bottom">
