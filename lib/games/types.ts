@@ -7,8 +7,12 @@ export type GameHud = {
   status: GameStatus;
 };
 
+// Matriz de una pieza: 0 = vacío, 1..N = índice de color
+export type NextShape = number[][];
+
 export type GameCallbacks = {
   onHudChange: (hud: GameHud) => void; // solo cuando cambia algún campo
+  onNextChange?: (shape: NextShape) => void; // solo cuando cambia la pieza siguiente
 };
 
 export type GameInstance = {
