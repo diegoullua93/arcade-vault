@@ -6,6 +6,7 @@ import { saveScore } from "@/app/juegos/[id]/jugar/actions";
 import { PlayerName } from "@/components/player-name";
 import { useSession } from "@/components/session-provider";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
+import { createArkanoidGame } from "@/lib/games/arkanoid/game";
 import { drawBlock } from "@/lib/games/tetris/entities";
 import { createTetrisGame } from "@/lib/games/tetris/game";
 import type { GameCallbacks, GameHud, GameInstance, NextShape } from "@/lib/games/types";
@@ -32,6 +33,13 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     height: 600,
     showLives: false,
     showNext: true,
+  },
+  arkanoid: {
+    create: createArkanoidGame,
+    width: 800,
+    height: 600,
+    showLives: true,
+    showNext: false,
   },
 };
 
