@@ -1,6 +1,6 @@
 # SPEC 08 — Juego ARKANOID jugable con leaderboard
 
-> **Status:** approved
+> **Status:** implemented
 > **Depends on:** SPEC 05, SPEC 06, SPEC 07
 > **Date:** 2026-10-31
 > **Objective:** Portar `references/04-arkanoid` a un motor TypeScript en `lib/games/arkanoid/`, montarlo en `/juegos/arkanoid/jugar` (canvas 800×600) y guardar su puntuación en el leaderboard existente, renombrando la fila `bloque-buster` del catálogo a `arkanoid`.
