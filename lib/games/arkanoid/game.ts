@@ -51,6 +51,7 @@ export function createArkanoidGame(
   let score = 0;
   let currentLevel = 1;
   let state: State = "playing";
+  let won = false; // gameover por completar el último nivel
   const keys = { left: false, right: false };
 
   let paused = false;
@@ -111,12 +112,29 @@ export function createArkanoidGame(
     score = 0;
     lives = INITIAL_LIVES;
     state = "playing";
+    won = false;
     initPaddle();
     loadLevel(1);
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
+  const BLOCKED_KEYS = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"];
+
   const onKeyDown = (e: KeyboardEvent) => {
+    if (BLOCKED_KEYS.includes(e.code)) e.preventDefault();
+
+    if (e.code === "KeyP" || e.code === "Escape") {
+      if (!e.repeat) (paused ? resume : pause)();
+      return;
+    }
+
+    if (paused) return;
+    if (state === "gameover") {
+      // Solo la pulsación inicial: mantener Espacio no reinicia en cadena
+      if (e.code === "Space" && !e.repeat) restart();
+      return;
+    }
+
     if (e.code === "ArrowLeft") keys.left = true;
     if (e.code === "ArrowRight") keys.right = true;
   };
@@ -189,6 +207,7 @@ export function createArkanoidGame(
           if (currentLevel < LEVELS.length) loadLevel(currentLevel + 1);
           else {
             state = "gameover";
+            won = true;
           }
         }
         break;
@@ -205,6 +224,7 @@ export function createArkanoidGame(
       if (lives <= 0) {
         lives = 0;
         state = "gameover";
+        won = false;
       } else {
         initBall();
       }
@@ -212,6 +232,18 @@ export function createArkanoidGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
+  function drawOverlay(title: string, titleSize: number, sub: string[]) {
+    if (!ctx) return;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${titleSize}px monospace`;
+    ctx.fillText(title, W / 2, H / 2 - 24);
+    ctx.font = "bold 18px monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.65)";
+    sub.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 + 24 + i * 28));
+  }
+
   function draw() {
     if (!ctx || !sprites) return;
     ctx.fillStyle = "#000";
@@ -228,6 +260,20 @@ export function createArkanoidGame(
 
     drawSprite(ctx, sprites, "paddle", paddle.x, paddle.y, paddle.w, paddle.h);
     drawSprite(ctx, sprites, "ball", ball.x, ball.y, ball.w, ball.h);
+
+    if (state === "gameover") {
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.fillRect(0, 0, W, H);
+      const sub = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
+      if (won) drawOverlay("¡COMPLETASTE EL JUEGO!", 48, sub);
+      else drawOverlay("GAME OVER", 64, sub);
+    }
+
+    if (paused) {
+      ctx.fillStyle = "rgba(0,0,0,0.65)";
+      ctx.fillRect(0, 0, W, H);
+      drawOverlay("PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
+    }
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -269,11 +315,22 @@ export function createArkanoidGame(
     if (sprites) startLoop();
   }
 
+  const onBlur = () => {
+    keys.left = false;
+    keys.right = false;
+    pause();
+  };
+  const onVisibilityChange = () => {
+    if (document.hidden) pause();
+  };
+
   // ── Arranque: el loop empieza cuando el spritesheet está cargado ────────────
   initGame();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibilityChange);
   canvas.addEventListener("mousemove", onMouseMove);
 
   const img = new Image();
@@ -296,6 +353,8 @@ export function createArkanoidGame(
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       canvas.removeEventListener("mousemove", onMouseMove);
     },
   };
