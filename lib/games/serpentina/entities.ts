@@ -1,4 +1,4 @@
-import { CELL, COLORS, COLS, EAT_STARS_MS, EAT_TEXT_MS, ROWS } from "./constants";
+import { CELL, COLORS, COLS, EAT_STARS_MS, EAT_TEXT_MS, FONT_FAMILY, ROWS } from "./constants";
 
 export type Cell = { x: number; y: number }; // columna 0..COLS-1, fila 0..ROWS-1
 export type Direction = "up" | "down" | "left" | "right";
@@ -151,7 +151,7 @@ export function drawEatEffect(ctx: CanvasRenderingContext2D, effect: EatEffect) 
     const t = effect.elapsed / EAT_TEXT_MS;
     ctx.save();
     ctx.globalAlpha = 1 - t * t;
-    ctx.font = "bold 18px 'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif";
+    ctx.font = `bold 18px ${FONT_FAMILY}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";

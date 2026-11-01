@@ -1,4 +1,4 @@
-import { COLORS, GROUND_H, H, W } from "./constants";
+import { COLORS, FONT_FAMILY, GROUND_H, H, W } from "./constants";
 
 // Escenario estático (cielo, nubes, colinas, suelo). Posiciones fijas: sin azar y sin estado,
 // así el motor lo dibuja una sola vez en un canvas fuera de pantalla.
@@ -107,4 +107,60 @@ export function drawBackground(ctx: CanvasRenderingContext2D) {
   drawClouds(ctx);
   drawHills(ctx);
   drawGround(ctx);
+}
+
+const PANEL_W = 640;
+
+// Velo azul + cartel crema con contorno marrón. El título se encoge hasta caber en el panel.
+export function drawOverlay(
+  ctx: CanvasRenderingContext2D,
+  title: string,
+  titleSize: number,
+  lines: string[],
+) {
+  ctx.fillStyle = COLORS.veil;
+  ctx.fillRect(0, 0, W, H);
+
+  let size = titleSize;
+  ctx.font = `bold ${size}px ${FONT_FAMILY}`;
+  while (size > 20 && ctx.measureText(title).width > PANEL_W - 80) {
+    size -= 2;
+    ctx.font = `bold ${size}px ${FONT_FAMILY}`;
+  }
+
+  const lineH = 30;
+  const panelH = 36 + size + 20 + lines.length * lineH + 20;
+  const px = (W - PANEL_W) / 2;
+  const py = (H - panelH) / 2;
+
+  ctx.save();
+  ctx.shadowColor = "rgba(0, 0, 0, 0.35)";
+  ctx.shadowOffsetY = 8;
+  ctx.shadowBlur = 14;
+  ctx.fillStyle = COLORS.panel;
+  ctx.beginPath();
+  ctx.roundRect(px, py, PANEL_W, panelH, 28);
+  ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = COLORS.panelText;
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.roundRect(px, py, PANEL_W, panelH, 28);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+
+  const titleY = py + 36 + size / 2;
+  ctx.font = `bold ${size}px ${FONT_FAMILY}`;
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = COLORS.panelText;
+  ctx.strokeText(title, W / 2, titleY);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(title, W / 2, titleY);
+
+  ctx.font = `bold 20px ${FONT_FAMILY}`;
+  ctx.fillStyle = COLORS.panelText;
+  lines.forEach((line, i) => ctx.fillText(line, W / 2, py + 36 + size + 20 + lineH / 2 + i * lineH));
 }

@@ -20,6 +20,9 @@ export const GROUND_H = 40; // franja decorativa de suelo en la parte inferior
 export const EAT_STARS_MS = 300;
 export const EAT_TEXT_MS = 500;
 
+// Fuente redondeada del sistema para los textos del canvas (no se carga ninguna fuente nueva)
+export const FONT_FAMILY = "'Arial Rounded MT Bold', 'Trebuchet MS', sans-serif";
+
 export const COLORS = {
   skyTop: "#4a90f0",
   skyBottom: "#bfe3ff",
@@ -43,4 +46,7 @@ export const COLORS = {
   star: "#fff04d",
   popup: "#ffffff",
   popupOutline: "#6b3410",
+  veil: "rgba(18, 46, 105, 0.55)",
+  panel: "#fff4d6",
+  panelText: "#6b3410",
 } as const;
