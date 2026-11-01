@@ -7,6 +7,7 @@ import { PlayerName } from "@/components/player-name";
 import { useSession } from "@/components/session-provider";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
 import { createArkanoidGame } from "@/lib/games/arkanoid/game";
+import { createSerpentinaGame } from "@/lib/games/serpentina/game";
 import { drawBlock } from "@/lib/games/tetris/entities";
 import { createTetrisGame } from "@/lib/games/tetris/game";
 import type { GameCallbacks, GameHud, GameInstance, NextShape } from "@/lib/games/types";
@@ -39,6 +40,13 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     width: 800,
     height: 600,
     showLives: true,
+    showNext: false,
+  },
+  serpentina: {
+    create: createSerpentinaGame,
+    width: 800,
+    height: 600,
+    showLives: false,
     showNext: false,
   },
 };
