@@ -10,7 +10,7 @@ import {
   ROWS,
   W,
 } from "./constants";
-import { drawBackground } from "./draw";
+import { drawBackground, drawOverlay } from "./draw";
 import {
   drawCheckerboard,
   drawCoin,
@@ -23,6 +23,8 @@ import {
 import { advance, isOpposite, levelFor, randomFreeCell, stepInterval } from "./utils";
 
 type State = "playing" | "gameover";
+
+const BLOCKED_KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"];
 
 const KEY_TO_DIRECTION: Record<string, Direction> = {
   ArrowUp: "up",
@@ -58,6 +60,8 @@ export function createSerpentinaGame(
   let eaten = 0;
   let score = 0;
   let state: State = "playing";
+  let won = false; // gameover por llenar el tablero
+  let paused = false;
   let acc = 0; // ms acumulados desde el último paso
   let time = 0; // ms de motor, para animar la moneda
   let effects: EatEffect[] = [];
@@ -71,7 +75,7 @@ export function createSerpentinaGame(
       score,
       lives: 0,
       level: levelFor(eaten),
-      status: state,
+      status: paused ? "paused" : state,
     };
     if (
       lastHud &&
@@ -96,6 +100,7 @@ export function createSerpentinaGame(
     eaten = 0;
     score = 0;
     state = "playing";
+    won = false;
     acc = 0;
     effects = [];
     food = randomFreeCell(snake, Math.random);
@@ -127,13 +132,30 @@ export function createSerpentinaGame(
     effects.push({ x: head.x * CELL + CELL / 2, y: head.y * CELL + CELL / 2, points, elapsed: 0 });
 
     food = randomFreeCell(snake, Math.random);
-    if (food === null) state = "gameover"; // tablero lleno
+    if (food === null) {
+      state = "gameover";
+      won = true;
+    }
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
   const onKeyDown = (e: KeyboardEvent) => {
+    if (BLOCKED_KEYS.includes(e.code)) e.preventDefault();
+
+    if (e.code === "KeyP" || e.code === "Escape") {
+      if (!e.repeat) (paused ? resume : pause)();
+      return;
+    }
+
+    if (paused) return;
+    if (state === "gameover") {
+      // Solo la pulsación inicial: mantener Espacio no reinicia en cadena
+      if (e.code === "Space" && !e.repeat) restart();
+      return;
+    }
+
     const turn = KEY_TO_DIRECTION[e.code];
-    if (!turn || state !== "playing") return;
+    if (!turn) return;
     if (queue.length >= MAX_QUEUED_TURNS) return;
 
     // Se compara con el último giro encolado (o la dirección actual): sin 180° ni repetidos
@@ -166,6 +188,14 @@ export function createSerpentinaGame(
     if (food) drawCoin(ctx, food, time);
     drawSnake(ctx, snake, dir);
     for (const effect of effects) drawEatEffect(ctx, effect);
+
+    if (state === "gameover") {
+      const lines = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
+      if (won) drawOverlay(ctx, "¡TABLERO COMPLETO!", 48, lines);
+      else drawOverlay(ctx, "GAME OVER", 64, lines);
+    }
+
+    if (paused) drawOverlay(ctx, "PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -184,20 +214,40 @@ export function createSerpentinaGame(
     rafId = requestAnimationFrame(loop);
   }
 
-  // La pausa llega en el paso 4 del plan; hasta entonces son no-op
-  function pause() {}
-  function resume() {}
+  function pause() {
+    // En gameover no hay nada que pausar
+    if (paused || state === "gameover") return;
+    paused = true;
+    cancelAnimationFrame(rafId);
+    draw();
+    emitHud();
+  }
 
-  function restart() {
-    reset();
+  function resume() {
+    if (!paused) return;
+    paused = false;
     emitHud();
     startLoop();
   }
+
+  function restart() {
+    reset();
+    paused = false;
+    emitHud();
+    startLoop();
+  }
+
+  const onBlur = () => pause();
+  const onVisibilityChange = () => {
+    if (document.hidden) pause();
+  };
 
   // ── Arranque ────────────────────────────────────────────────────────────────
   reset();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVisibilityChange);
   startLoop();
 
   return {
@@ -207,6 +257,8 @@ export function createSerpentinaGame(
     destroy() {
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     },
   };
 }
