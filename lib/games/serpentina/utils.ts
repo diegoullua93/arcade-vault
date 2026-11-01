@@ -6,7 +6,7 @@ import {
   ROWS,
   STEP_DECREMENT_MS,
 } from "./constants";
-import type { Cell, Direction } from "./entities";
+import { DIRECTION_VECTORS, type Cell, type Direction } from "./entities";
 
 export function levelFor(eaten: number): number {
   return Math.floor(eaten / FOOD_PER_LEVEL) + 1;
@@ -21,7 +21,12 @@ export function wrap(cell: Cell): Cell {
   return { x: (cell.x + COLS) % COLS, y: (cell.y + ROWS) % ROWS };
 }
 
-const OPPOSITE: Record<Direction, Direction> = {
+export function advance(cell: Cell, dir: Direction): Cell {
+  const { dx, dy } = DIRECTION_VECTORS[dir];
+  return wrap({ x: cell.x + dx, y: cell.y + dy });
+}
+
+const OPPOSITE:Record<Direction, Direction> = {
   up: "down",
   down: "up",
   left: "right",

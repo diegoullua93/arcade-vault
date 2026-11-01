@@ -11,7 +11,7 @@ export type EatEffect = {
   elapsed: number; // ms
 };
 
-const VECTORS: Record<Direction, { dx: number; dy: number }> = {
+export const DIRECTION_VECTORS: Record<Direction, { dx: number; dy: number }> = {
   up: { dx: 0, dy: -1 },
   down: { dx: 0, dy: 1 },
   left: { dx: -1, dy: 0 },
@@ -47,7 +47,7 @@ function drawBodySegment(ctx: CanvasRenderingContext2D, cell: Cell, index: numbe
 }
 
 function drawHead(ctx: CanvasRenderingContext2D, cell: Cell, dir: Direction) {
-  const { dx, dy } = VECTORS[dir];
+  const { dx, dy } = DIRECTION_VECTORS[dir];
   const px = -dy; // perpendicular a la dirección
   const py = dx;
   const cx = cell.x * CELL + CELL / 2;
