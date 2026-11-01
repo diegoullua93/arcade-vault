@@ -1,6 +1,6 @@
 # SPEC 09 — Juego SERPENTINA jugable con leaderboard
 
-> **Status:** approved
+> **Status:** implemented
 > **Depends on:** SPEC 05, SPEC 06, SPEC 07, SPEC 08
 > **Date:** 2026-11-01
 > **Objective:** Crear `serpentina` como motor TypeScript en `lib/games/serpentina/` (Snake clásico con paredes que se atraviesan), montarlo en `/juegos/serpentina/jugar` (canvas 800×600) y guardar su puntuación en el leaderboard existente.
