@@ -1,4 +1,6 @@
+import { Suspense } from "react";
 import { Library } from "@/components/library";
+import { getGamesWithStats } from "@/lib/queries/games";
 
 export default function BibliotecaPage() {
   return (
@@ -9,7 +11,14 @@ export default function BibliotecaPage() {
           INSERTA UNA MONEDA PARA JUGAR <span className="blink">_</span>
         </div>
       </section>
-      <Library />
+      <Suspense fallback={null}>
+        <LibraryWithStats />
+      </Suspense>
     </main>
   );
+}
+
+async function LibraryWithStats() {
+  const games = await getGamesWithStats();
+  return <Library games={games} />;
 }

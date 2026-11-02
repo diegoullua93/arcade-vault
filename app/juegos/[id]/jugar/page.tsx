@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { GameScreen } from "@/components/game/game-screen";
 import { PlayerName } from "@/components/player-name";
-import { GAMES, PLAYABLE_GAME_IDS, getGame } from "@/lib/games";
+import { PLAYABLE_GAME_IDS } from "@/lib/games";
+import { getGame, getGames } from "@/lib/queries/games";
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ id: g.id }));
+export async function generateStaticParams() {
+  const games = await getGames();
+  return games.map((g) => ({ id: g.id }));
 }
 
 export default function GamePlayerPage(props: PageProps<"/juegos/[id]/jugar">) {
@@ -19,11 +21,11 @@ export default function GamePlayerPage(props: PageProps<"/juegos/[id]/jugar">) {
 
 async function GamePlayer({ params }: { params: PageProps<"/juegos/[id]/jugar">["params"] }) {
   const { id } = await params;
-  const game = getGame(id);
+  const game = await getGame(id);
   if (!game) notFound();
 
   if (PLAYABLE_GAME_IDS.includes(game.id)) {
-    return <GameScreen gameId={game.id} />;
+    return <GameScreen gameId={game.id} title={game.title} />;
   }
 
   return (

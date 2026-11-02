@@ -609,6 +609,14 @@
   font-family: var(--mono);
   font-size: 13px;
 }
+.lb-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+}
 .lb-row .rk { font-family: var(--pixel); font-size: 11px; color: var(--ink-faint); }
 .lb-row .pl { color: var(--ink); }
 .lb-row .sc { text-align: right; font-family: var(--pixel); font-size: 12px; color: var(--cyan); }
@@ -707,6 +715,54 @@
   margin-inline: auto;
 }
 
+/* marco vertical (Tetris): tablero 1:2 y mini-pantalla de la pieza siguiente a su lado.
+   El alto del tablero usa el mismo presupuesto que el marco 4:3 (100dvh - 275px) con tope en 600px */
+.crt.crt--game.crt--side {
+  --av-board-h: clamp(360px, calc(100dvh - 275px), 600px);
+  display: grid;
+  grid-template-columns: auto 132px;
+  grid-template-areas: "screen side" "bottom bottom";
+  column-gap: 18px;
+  align-items: start;
+  width: fit-content;
+  max-width: 100%;
+}
+.crt--side .crt-screen {
+  grid-area: screen;
+  width: calc(var(--av-board-h) / 2);
+  aspect-ratio: 1 / 2;
+}
+.crt--side .crt-bottom {
+  grid-area: bottom;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.av-next-panel {
+  grid-area: side;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.av-next-panel .l {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-faint);
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+/* misma mini-pantalla que .crt-screen: vidrio negro, inset y scanlines */
+.av-next-screen {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: 8px / 16px;
+  overflow: hidden;
+  box-shadow: inset 0 0 30px rgba(0,0,0,0.9), inset 0 0 12px rgba(0,245,255,0.15);
+}
+.av-next-screen canvas { display: block; width: 100%; height: 100%; }
+.av-next-screen::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0 2px, transparent 2px 4px);
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
 /* estados del marco CRT (GameScreen) */
 .crt[data-status="paused"] .crt-bottom .led { color: var(--yellow); }
 .crt[data-status="paused"] .crt-bottom .led::before {
@@ -718,13 +774,43 @@
   background: var(--magenta); box-shadow: 0 0 6px var(--magenta);
 }
 @keyframes av-led-blink { 50% { opacity: 0.25; } }
+
+/* estado de guardado de la puntuación (GameScreen), en la barra inferior del marco */
+.crt-bottom .save-status { display: inline-flex; align-items: center; gap: 10px; }
+.crt-bottom .save-status[data-state="saving"] { color: var(--yellow); }
+.crt-bottom .save-status[data-state="saving"]::before {
+  content: ""; width: 6px; height: 6px; background: var(--yellow);
+  box-shadow: 0 0 6px var(--yellow);
+  animation: av-led-blink 1.2s steps(2, jump-none) infinite;
+}
+.crt-bottom .save-status[data-state="saved"] { color: var(--green); text-shadow: 0 0 6px var(--green); }
+.crt-bottom .save-status[data-state="error"] { color: var(--magenta); text-shadow: 0 0 6px var(--magenta); }
+.crt-bottom .save-retry {
+  font: inherit; letter-spacing: inherit; color: var(--cyan);
+  background: none; border: 1px solid currentColor; padding: 3px 8px;
+  cursor: pointer; text-shadow: none;
+}
+.crt-bottom .save-retry:hover, .crt-bottom .save-retry:focus-visible {
+  box-shadow: 0 0 8px var(--cyan);
+}
+.crt-bottom .save-link {
+  color: var(--yellow); text-decoration: underline; text-underline-offset: 3px;
+}
+.crt-bottom .save-link:hover, .crt-bottom .save-link:focus-visible { color: var(--cyan); }
+
 @media (prefers-reduced-motion: reduce) {
-  .crt[data-status="paused"] .crt-bottom .led::before { animation: none; }
+  .crt[data-status="paused"] .crt-bottom .led::before,
+  .crt-bottom .save-status[data-state="saving"]::before { animation: none; }
 }
 @media (max-width: 640px) {
   .av-player { padding: 0 16px 48px; }
   .crt { padding: 12px; border-radius: 18px; }
   .crt-bottom { flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  /* 32px = gutter de la página; 24px = padding del marco; 88px + 12px = panel y hueco */
+  .crt.crt--game.crt--side { grid-template-columns: auto 88px; column-gap: 12px; }
+  .crt--side .crt-screen {
+    width: min(calc(var(--av-board-h) / 2), calc(100vw - 32px - 24px - 100px));
+  }
 }
 
 /* fake in-screen game */
@@ -975,6 +1061,12 @@
   color: var(--yellow); letter-spacing: 0.16em; background: rgba(245,255,0,0.04);
   border-bottom: 1px solid var(--line-2);
 }
+.hall-table .tr.empty {
+  display: block; text-align: center; padding: 28px 18px;
+  font-size: 12px; letter-spacing: 0.12em; color: var(--ink-dim);
+}
+.podium-slot.vacant { opacity: 0.45; box-shadow: none; }
+.podium-slot.vacant .name, .podium-slot.vacant .score { color: var(--ink-faint); text-shadow: none; }
 @keyframes rise {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

@@ -1,18 +1,70 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
+import { saveScore } from "@/app/juegos/[id]/jugar/actions";
 import { PlayerName } from "@/components/player-name";
-import { getGame } from "@/lib/games";
+import { useSession } from "@/components/session-provider";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
-import type { GameCallbacks, GameHud, GameInstance } from "@/lib/games/types";
+import { createArkanoidGame } from "@/lib/games/arkanoid/game";
+import { createSerpentinaGame } from "@/lib/games/serpentina/game";
+import { drawBlock } from "@/lib/games/tetris/entities";
+import { createTetrisGame } from "@/lib/games/tetris/game";
+import type { GameCallbacks, GameHud, GameInstance, NextShape } from "@/lib/games/types";
 
-const ENGINES: Record<
-  string,
-  (canvas: HTMLCanvasElement, callbacks: GameCallbacks) => GameInstance
-> = {
-  asteroids: createAsteroidsGame,
+type GameConfig = {
+  create: (canvas: HTMLCanvasElement, callbacks: GameCallbacks) => GameInstance;
+  width: number; // resolución interna del canvas
+  height: number;
+  showLives: boolean;
+  showNext: boolean; // panel lateral con el canvas de la pieza siguiente
 };
+
+const GAMES_CONFIG: Record<string, GameConfig> = {
+  asteroids: {
+    create: createAsteroidsGame,
+    width: 800,
+    height: 600,
+    showLives: true,
+    showNext: false,
+  },
+  tetris: {
+    create: createTetrisGame,
+    width: 300,
+    height: 600,
+    showLives: false,
+    showNext: true,
+  },
+  arkanoid: {
+    create: createArkanoidGame,
+    width: 800,
+    height: 600,
+    showLives: true,
+    showNext: false,
+  },
+  serpentina: {
+    create: createSerpentinaGame,
+    width: 800,
+    height: 600,
+    showLives: false,
+    showNext: false,
+  },
+};
+
+const NEXT_SIZE = 120;
+const NEXT_BLOCK = 30;
+
+// Centra la pieza en una rejilla de 4×4 bloques, como el canvas "next" de la referencia
+function drawNext(canvas: HTMLCanvasElement, shape: NextShape) {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.clearRect(0, 0, NEXT_SIZE, NEXT_SIZE);
+  const offX = Math.floor((4 - shape[0].length) / 2);
+  const offY = Math.floor((4 - shape.length) / 2);
+  for (let r = 0; r < shape.length; r++)
+    for (let c = 0; c < shape[r].length; c++)
+      drawBlock(ctx, offX + c, offY + r, shape[r][c], NEXT_BLOCK);
+}
 
 const LED_LABEL: Record<GameHud["status"], string> = {
   playing: "SEÑAL OK",
@@ -28,21 +80,93 @@ const INITIAL_HUD: GameHud = {
   status: "playing",
 };
 
-export function GameScreen({ gameId }: { gameId: string }) {
-  const game = getGame(gameId);
+type SaveState =
+  | { kind: "idle" }
+  | { kind: "guest" }
+  | { kind: "saving" }
+  | { kind: "saved"; rank: number }
+  | { kind: "error" };
+
+const IDLE: SaveState = { kind: "idle" };
+
+export function GameScreen({ gameId, title }: { gameId: string; title: string }) {
+  const { user } = useSession();
+  const config = GAMES_CONFIG[gameId] ?? GAMES_CONFIG.asteroids;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const nextCanvasRef = useRef<HTMLCanvasElement>(null);
   const [hud, setHud] = useState<GameHud>(INITIAL_HUD);
+  const [save, setSave] = useState<SaveState>(IDLE);
+
+  // El callback del motor se crea una vez por partida: lee estos refs en vez de props/estado.
+  const userNameRef = useRef<string | null>(null);
+  const armedRef = useRef(true); // true = el próximo gameover guarda
+  const runRef = useRef(0); // descarta respuestas de guardados ya obsoletos
+  const scoreRef = useRef(0); // puntuación final, para REINTENTAR
+
+  useEffect(() => {
+    userNameRef.current = user?.name ?? null;
+  }, [user]);
+
+  const submit = useCallback(
+    (score: number, playerName: string) => {
+      const run = ++runRef.current;
+      setSave({ kind: "saving" });
+      saveScore({ gameId, playerName, score })
+        .then((r): SaveState => (r.ok ? { kind: "saved", rank: r.rank } : { kind: "error" }))
+        .catch((): SaveState => ({ kind: "error" }))
+        .then((next) => {
+          if (runRef.current === run) setSave(next);
+        });
+    },
+    [gameId],
+  );
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const createGame = ENGINES[gameId];
+    const createGame = GAMES_CONFIG[gameId]?.create;
     if (!canvas || !createGame) return;
 
-    const instance = createGame(canvas, { onHudChange: setHud });
-    return () => instance.destroy();
-  }, [gameId]);
+    const instance = createGame(canvas, {
+      onNextChange: (shape) => {
+        if (nextCanvasRef.current) drawNext(nextCanvasRef.current, shape);
+      },
+      onHudChange: (next) => {
+        setHud(next);
 
-  if (!game) return null;
+        if (next.status === "gameover") {
+          // Una sola llamada por partida: pausar y reanudar sobre el gameover no repite.
+          if (!armedRef.current) return;
+          armedRef.current = false;
+          scoreRef.current = next.score;
+          if (next.score <= 0) return;
+
+          const name = userNameRef.current;
+          if (!name) {
+            setSave({ kind: "guest" });
+            return;
+          }
+          submit(next.score, name);
+        } else if (next.status !== "paused") {
+          // Partida nueva (restart): rearma y descarta cualquier guardado en vuelo.
+          armedRef.current = true;
+          runRef.current++;
+          setSave(IDLE);
+        }
+      },
+    });
+    return () => instance.destroy();
+  }, [gameId, submit]);
+
+  const retry = (e: MouseEvent<HTMLButtonElement>) => {
+    // Sin foco en el botón, Espacio reinicia la partida en vez de volver a pulsarlo.
+    e.currentTarget.blur();
+    const name = userNameRef.current;
+    if (!name) {
+      setSave({ kind: "guest" });
+      return;
+    }
+    submit(scoreRef.current, name);
+  };
 
   return (
     <main className="av-main">
@@ -59,35 +183,65 @@ export function GameScreen({ gameId }: { gameId: string }) {
               <div className="l">Puntuación</div>
               <div className="v">{hud.score}</div>
             </div>
-            <div className="hud-stat lives">
-              <div className="l">Vidas</div>
-              <div className="v">{"♥ ".repeat(hud.lives).trim() || "—"}</div>
-            </div>
+            {config.showLives && (
+              <div className="hud-stat lives">
+                <div className="l">Vidas</div>
+                <div className="v">{"♥ ".repeat(hud.lives).trim() || "—"}</div>
+              </div>
+            )}
             <div className="hud-stat level">
               <div className="l">Nivel</div>
               <div className="v">{String(hud.level).padStart(2, "0")}</div>
             </div>
           </div>
           <div className="hud-actions">
-            <Link href={`/juegos/${game.id}`} className="btn ghost">
+            <Link href={`/juegos/${gameId}`} className="btn ghost">
               SALIR
             </Link>
           </div>
         </div>
 
-        <div className="crt crt--game" data-status={hud.status}>
+        <div
+          className={`crt crt--game${config.showNext ? " crt--side" : ""}`}
+          data-status={hud.status}
+        >
           <div className="crt-screen">
             <canvas
               ref={canvasRef}
-              width={800}
-              height={600}
+              width={config.width}
+              height={config.height}
               style={{ display: "block", width: "100%", height: "100%" }}
             />
           </div>
+          {config.showNext && (
+            <aside className="av-next-panel" aria-label="Pieza siguiente">
+              <div className="l">Siguiente</div>
+              <div className="av-next-screen">
+                <canvas ref={nextCanvasRef} width={NEXT_SIZE} height={NEXT_SIZE} />
+              </div>
+            </aside>
+          )}
           <div className="crt-bottom">
             <span className="led">{LED_LABEL[hud.status]}</span>
-            <span>{game.title} · CRT-83 · 60 HZ</span>
-            <span>CARGA · 1MB</span>
+            <span>{title} · CRT-83 · 60 HZ</span>
+            <span className="save-status" data-state={save.kind} role="status" aria-live="polite">
+              {save.kind === "idle" && "CARGA · 1MB"}
+              {save.kind === "saving" && "GUARDANDO"}
+              {save.kind === "saved" && `GUARDADO #${save.rank}`}
+              {save.kind === "error" && (
+                <>
+                  ERROR
+                  <button type="button" className="save-retry" onClick={retry}>
+                    REINTENTAR
+                  </button>
+                </>
+              )}
+              {save.kind === "guest" && (
+                <Link href="/auth" className="save-link">
+                  INICIA SESIÓN PARA GUARDAR TU PUNTUACIÓN
+                </Link>
+              )}
+            </span>
           </div>
         </div>
       </div>

@@ -2,14 +2,14 @@ import Link from "next/link";
 import { MiniCard } from "@/components/home/mini-card";
 import { Reveal } from "@/components/home/reveal";
 import { SectionHead } from "@/components/home/section-head";
-import { GAMES } from "@/lib/games";
+import type { Game } from "@/lib/games";
 
-export function GamesSection() {
+export function GamesSection({ games }: { games: Game[] }) {
   return (
     <Reveal className="home-section">
       <SectionHead kicker="// 02" color="cyan" title="JUEGOS DISPONIBLES AHORA" />
       <div className="mini-rail">
-        {GAMES.slice(0, 6).map((g) => (
+        {games.slice(0, 6).map((g) => (
           <MiniCard key={g.id} game={g} />
         ))}
       </div>
