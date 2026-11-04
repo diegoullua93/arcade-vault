@@ -20,6 +20,9 @@ import type {
 } from "@/lib/games/types";
 import { useSkin } from "./use-skin";
 
+// Controles del mando táctil (SPEC 10); el paso 3 mueve este tipo a touch-controls.tsx
+type TouchKey = "up" | "down" | "left" | "right" | "a" | "b";
+
 type GameConfig = {
   create: (
     canvas: HTMLCanvasElement,
@@ -31,6 +34,8 @@ type GameConfig = {
   showLives: boolean;
   showNext: boolean; // panel lateral con el canvas de la pieza siguiente
   skins: boolean; // el motor acepta options.skin (neon / classic / mario)
+  touchKeys: TouchKey[]; // controles del mando táctil con función en este juego
+  touchRepeat: boolean; // autorepetido de la cruceta (el motor actúa en cada keydown)
 };
 
 const GAMES_CONFIG: Record<string, GameConfig> = {
@@ -41,6 +46,8 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     showLives: true,
     showNext: false,
     skins: false,
+    touchKeys: ["up", "left", "right", "a"],
+    touchRepeat: false,
   },
   tetris: {
     create: createTetrisGame,
@@ -49,6 +56,8 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     showLives: false,
     showNext: true,
     skins: true,
+    touchKeys: ["up", "down", "left", "right", "a", "b"],
+    touchRepeat: true,
   },
   arkanoid: {
     create: createArkanoidGame,
@@ -57,6 +66,8 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     showLives: true,
     showNext: false,
     skins: true,
+    touchKeys: ["left", "right", "a"],
+    touchRepeat: false,
   },
   serpentina: {
     create: createSerpentinaGame,
@@ -65,6 +76,8 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     showLives: false,
     showNext: false,
     skins: false,
+    touchKeys: ["up", "down", "left", "right"],
+    touchRepeat: false,
   },
 };
 
