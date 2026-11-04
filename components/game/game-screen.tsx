@@ -18,10 +18,8 @@ import type {
   GameOptions,
   NextShape,
 } from "@/lib/games/types";
+import { TouchControls, type TouchKey } from "./touch-controls";
 import { useSkin } from "./use-skin";
-
-// Controles del mando táctil (SPEC 10); el paso 3 mueve este tipo a touch-controls.tsx
-type TouchKey = "up" | "down" | "left" | "right" | "a" | "b";
 
 type GameConfig = {
   create: (
@@ -344,6 +342,13 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
             </span>
           </div>
         </div>
+
+        <TouchControls
+          touchKeys={config.touchKeys}
+          repeat={config.touchRepeat}
+          paused={hud.status === "paused"}
+          gameover={hud.status === "gameover"}
+        />
       </div>
     </main>
   );

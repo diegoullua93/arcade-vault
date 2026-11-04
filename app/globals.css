@@ -910,6 +910,118 @@
   }
 }
 
+/* ===== mando táctil (SPEC 10): solo en dispositivos táctiles ===== */
+.touch-pad {
+  display: none;
+  grid-template-columns: auto auto;
+  grid-template-areas: "dpad ab" "menu menu";
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px 12px;
+  width: min(100%, 420px);
+  margin: 18px auto 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: linear-gradient(180deg, var(--bg-3), var(--bg-2));
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+@media (hover: none) and (pointer: coarse) {
+  .touch-pad { display: grid; }
+}
+.touch-pad button {
+  font: inherit;
+  color: var(--ink-dim);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  cursor: default;
+}
+.touch-pad button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* cruceta: una sola cruz de 3×3 celdas */
+.tp-dpad {
+  grid-area: dpad;
+  display: grid;
+  grid-template: repeat(3, 52px) / repeat(3, 52px);
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6));
+}
+.tp-dir {
+  display: grid; place-items: center;
+  padding: 0;
+  background: var(--bg-3);
+  border: 1px solid var(--ink-faint);
+  transition: background-color 60ms, box-shadow 60ms;
+}
+.tp-dir svg { width: 26px; height: 26px; fill: currentColor; }
+.tp-up    { grid-area: 1 / 2; border-radius: 12px 12px 0 0; border-bottom: 0; }
+.tp-left  { grid-area: 2 / 1; border-radius: 12px 0 0 12px; border-right: 0; }
+.tp-right { grid-area: 2 / 3; border-radius: 0 12px 12px 0; border-left: 0; }
+.tp-down  { grid-area: 3 / 2; border-radius: 0 0 12px 12px; border-top: 0; }
+.tp-left svg  { transform: rotate(-90deg); }
+.tp-right svg { transform: rotate(90deg); }
+.tp-down svg  { transform: rotate(180deg); }
+.tp-hub {
+  grid-area: 2 / 2;
+  background: var(--bg-3);
+  border-block: 1px solid transparent;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.7);
+}
+
+/* A y B: redondos y en diagonal, como una consola de bolsillo */
+.tp-ab {
+  grid-area: ab;
+  display: flex; align-items: center; gap: 12px;
+  padding-right: 4px;
+}
+.tp-round {
+  width: 60px; height: 60px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  border: 2px solid var(--ink-faint);
+  font-family: var(--pixel);
+  font-size: 14px;
+  box-shadow: 0 6px 10px rgba(0,0,0,0.6);
+  transition: background-color 60ms, box-shadow 60ms;
+}
+.tp-a { border-color: var(--magenta); color: var(--magenta); transform: translateY(-16px); }
+.tp-b { border-color: var(--yellow); color: var(--yellow); transform: translateY(12px); }
+
+/* PAUSA y REINICIAR */
+.tp-menu {
+  grid-area: menu;
+  display: flex; justify-content: center; gap: 12px;
+}
+.tp-pill {
+  min-width: 112px; min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  font-family: var(--pixel);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+.tp-pill:active { background: rgba(255,255,255,0.08); color: var(--ink); }
+.tp-restart { border-color: var(--green); color: var(--green); visibility: hidden; }
+.tp-restart[data-visible="true"] { visibility: visible; }
+
+/* pulsado: se ilumina en cian */
+.tp-dir[data-pressed="true"],
+.tp-round[data-pressed="true"] {
+  background: rgba(0,245,255,0.16);
+  color: var(--cyan);
+  box-shadow: 0 0 14px rgba(0,245,255,0.55), inset 0 0 8px rgba(0,245,255,0.35);
+}
+.tp-round[data-pressed="true"] { border-color: var(--cyan); }
+/* sin función en este juego */
+.touch-pad [aria-disabled="true"] { opacity: 0.28; }
+@media (prefers-reduced-motion: reduce) {
+  .tp-dir, .tp-round { transition: none; }
+}
+
 /* fake in-screen game */
 .game-arena {
   position: absolute; inset: 0;
