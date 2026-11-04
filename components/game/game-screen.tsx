@@ -134,6 +134,13 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
     userNameRef.current = user?.name ?? null;
   }, [user]);
 
+  // Sin pull-to-refresh mientras se juega: solo con GameScreen montado (SPEC 10)
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.add("av-playing");
+    return () => root.classList.remove("av-playing");
+  }, []);
+
   const submit = useCallback(
     (score: number, playerName: string) => {
       const run = ++runRef.current;

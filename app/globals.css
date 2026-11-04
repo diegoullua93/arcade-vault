@@ -1028,6 +1028,13 @@
   .tp-dir, .tp-round { transition: none; }
 }
 
+/* gestos del navegador sobre el juego (SPEC 10): sin zoom por doble toque, sin selección ni menú
+   de pulsación larga, sin scroll ni pull-to-refresh al arrastrar sobre el canvas */
+.av-player { touch-action: manipulation; }
+.crt { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.crt-screen canvas { touch-action: none; }
+html.av-playing { overscroll-behavior-y: contain; }
+
 /* móvil táctil: nav, HUD, marco y mando caben en 390×844 sin scroll de página.
    Se compacta el HUD y los márgenes; el pie del sitio se oculta mientras se juega. */
 @media (hover: none) and (pointer: coarse) and (max-width: 640px) {
