@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { useTouchKeys, type TouchCode } from "./use-touch-keys";
 
 export type TouchKey = "up" | "down" | "left" | "right" | "a" | "b";
@@ -33,10 +33,43 @@ type Props = {
 };
 
 export function TouchControls({ touchKeys, repeat, paused, gameover }: Props) {
-  const { press, release } = useTouchKeys();
+  const { press, release, releaseAll } = useTouchKeys();
   const [held, setHeld] = useState<ReadonlySet<TouchKey>>(new Set());
   // Un botón se libera solo con el dedo que lo pulsó: un segundo dedo encima se ignora
   const pointers = useRef(new Map<TouchKey, number>());
+
+  // Suelta todo: keyup de lo pulsado, sin dedos asignados y sin botones iluminados
+  const releaseEverything = useCallback(() => {
+    pointers.current.clear();
+    setHeld(new Set());
+    releaseAll();
+  }, [releaseAll]);
+
+  // Sin foco o con la pestaña oculta el sistema puede no enviar el pointerup: se libera a mano.
+  // Los motores se pausan solos con blur/visibilitychange, pero sin keyup la tecla quedaría pulsada.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden") releaseEverything();
+    };
+    window.addEventListener("blur", releaseEverything);
+    document.addEventListener("visibilitychange", onHidden);
+    return () => {
+      window.removeEventListener("blur", releaseEverything);
+      document.removeEventListener("visibilitychange", onHidden);
+    };
+  }, [releaseEverything]);
+
+  // Al llegar a gameover se suelta todo (los botones iluminados se limpian al renderizar)
+  const [wasGameover, setWasGameover] = useState(gameover);
+  if (gameover !== wasGameover) {
+    setWasGameover(gameover);
+    if (gameover) setHeld(new Set());
+  }
+  useEffect(() => {
+    if (!gameover) return;
+    pointers.current.clear();
+    releaseAll();
+  }, [gameover, releaseAll]);
 
   const setPressed = (key: TouchKey, on: boolean) =>
     setHeld((prev) => {
