@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
-  allowedDevOrigins: ['http://192.168.0.13'],
+  allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS?.split(",").map((o) => o.trim()) ?? [],
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
