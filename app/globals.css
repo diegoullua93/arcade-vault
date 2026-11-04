@@ -763,6 +763,103 @@
   mix-blend-mode: multiply;
 }
 
+/* selector de vista (skin). Cada opción adelanta la estética de su skin */
+.skin-picker {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 10px;
+}
+.hud-actions .skin-picker { flex-direction: row; align-items: center; margin-top: 0; }
+.skin-opt {
+  font-family: var(--pixel); font-size: 8px; line-height: 1.4; letter-spacing: 0.08em;
+  padding: 8px 6px;
+  text-align: center;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-dim);
+  transition: color 120ms, border-color 120ms, box-shadow 120ms, background 120ms;
+}
+.skin-opt:focus-visible { outline: 2px solid var(--yellow); outline-offset: 2px; }
+.skin-opt[data-skin="neon"]:hover,
+.skin-opt[data-skin="neon"][aria-pressed="true"] {
+  color: var(--cyan); border-color: var(--cyan);
+  text-shadow: 0 0 6px rgba(0,245,255,0.7);
+  box-shadow: 0 0 10px rgba(0,245,255,0.35), inset 0 0 8px rgba(0,245,255,0.25);
+}
+.skin-opt[data-skin="classic"] { border-radius: 0; }
+.skin-opt[data-skin="classic"]:hover,
+.skin-opt[data-skin="classic"][aria-pressed="true"] {
+  color: #000; background: #fcfcfc; border-color: #fcfcfc;
+  box-shadow: 3px 3px 0 #f83800;
+  transition: none;
+}
+.skin-opt[data-skin="mario"] {
+  font-family: "Arial Rounded MT Bold", "Trebuchet MS", sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.02em;
+  border-radius: 10px;
+}
+.skin-opt[data-skin="mario"]:hover,
+.skin-opt[data-skin="mario"][aria-pressed="true"] {
+  color: #6b3410; background: #ffd21f; border: 2px solid #6b3410;
+  padding: 7px 5px;
+  box-shadow: 0 3px 0 #a86d0a;
+}
+.skin-confirm {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-top: 4px; padding: 8px;
+  border: 1px dashed var(--yellow);
+  font-family: var(--mono); font-size: 11px; line-height: 1.35; color: var(--ink);
+}
+.skin-confirm p { margin: 0; }
+.skin-confirm button {
+  font-family: var(--pixel); font-size: 8px; letter-spacing: 0.08em;
+  padding: 6px; cursor: pointer; background: none;
+  border: 1px solid currentColor;
+}
+.skin-confirm-yes { color: var(--yellow); }
+.skin-confirm-no { color: var(--ink-dim); }
+.skin-confirm button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* marco CLÁSICO: mueble de recreativa, esquinas rectas, sin resplandor */
+.crt.crt--classic {
+  border-radius: 4px;
+  background: #101010;
+  box-shadow: 0 0 0 4px #3a3a3a, 0 0 0 8px #000, 0 20px 50px -20px rgba(0,0,0,0.8);
+}
+.crt.crt--classic::before { display: none; }
+.crt--classic .crt-screen,
+.crt--classic .av-next-screen { border-radius: 0; box-shadow: 0 0 0 3px #fcfcfc; }
+.crt--classic .crt-screen::before { display: none; }
+.crt--classic .crt-screen::after,
+.crt--classic .av-next-screen::after {
+  background: repeating-linear-gradient(0deg, rgba(0,0,0,0.28) 0 1px, transparent 1px 3px);
+}
+.crt--classic .crt-bottom .led::before { border-radius: 0; box-shadow: none; }
+
+/* marco MARIO BROS: cielo profundo con borde crema y marrón, pantalla limpia sin scanlines */
+.crt.crt--mario {
+  background: #2c5fc9;
+  box-shadow: 0 0 0 6px #fff4d6, 0 0 0 10px #6b3410, 0 26px 60px -20px rgba(74,144,240,0.6);
+}
+.crt.crt--mario::before {
+  background: radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,0.18), transparent 60%);
+}
+.crt--mario .crt-screen,
+.crt--mario .av-next-screen {
+  border-radius: 14px;
+  background: #4a90f0;
+  box-shadow: 0 0 0 4px #6b3410, 0 6px 0 4px rgba(0,0,0,0.25);
+}
+.crt--mario .av-next-screen { border-radius: 12px; }
+.crt--mario .crt-screen::before,
+.crt--mario .crt-screen::after,
+.crt--mario .av-next-screen::after { display: none; }
+.crt--mario .crt-bottom,
+.crt--mario .av-next-panel .l { color: #dce9ff; }
+.crt--mario .skin-opt:not([aria-pressed="true"]):not(:hover) { color: #dce9ff; border-color: #8fb3f0; }
+/* el magenta del tema no contrasta sobre el azul del marco */
+.crt.crt--mario[data-status="gameover"] .crt-bottom .led { color: #ffc2d6; }
+
 /* estados del marco CRT (GameScreen) */
 .crt[data-status="paused"] .crt-bottom .led { color: var(--yellow); }
 .crt[data-status="paused"] .crt-bottom .led::before {

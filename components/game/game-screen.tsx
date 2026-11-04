@@ -8,16 +8,29 @@ import { useSession } from "@/components/session-provider";
 import { createAsteroidsGame } from "@/lib/games/asteroids/game";
 import { createArkanoidGame } from "@/lib/games/arkanoid/game";
 import { createSerpentinaGame } from "@/lib/games/serpentina/game";
-import { drawBlock } from "@/lib/games/tetris/entities";
+import { SKINS, type SkinId } from "@/lib/games/skins";
 import { createTetrisGame } from "@/lib/games/tetris/game";
-import type { GameCallbacks, GameHud, GameInstance, NextShape } from "@/lib/games/types";
+import { drawNextPiece, getSkin } from "@/lib/games/tetris/skins";
+import type {
+  GameCallbacks,
+  GameHud,
+  GameInstance,
+  GameOptions,
+  NextShape,
+} from "@/lib/games/types";
+import { useSkin } from "./use-skin";
 
 type GameConfig = {
-  create: (canvas: HTMLCanvasElement, callbacks: GameCallbacks) => GameInstance;
+  create: (
+    canvas: HTMLCanvasElement,
+    callbacks: GameCallbacks,
+    options?: GameOptions,
+  ) => GameInstance;
   width: number; // resolución interna del canvas
   height: number;
   showLives: boolean;
   showNext: boolean; // panel lateral con el canvas de la pieza siguiente
+  skins: boolean; // el motor acepta options.skin (neon / classic / mario)
 };
 
 const GAMES_CONFIG: Record<string, GameConfig> = {
@@ -27,6 +40,7 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     height: 600,
     showLives: true,
     showNext: false,
+    skins: false,
   },
   tetris: {
     create: createTetrisGame,
@@ -34,6 +48,7 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     height: 600,
     showLives: false,
     showNext: true,
+    skins: true,
   },
   arkanoid: {
     create: createArkanoidGame,
@@ -41,6 +56,7 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     height: 600,
     showLives: true,
     showNext: false,
+    skins: true,
   },
   serpentina: {
     create: createSerpentinaGame,
@@ -48,22 +64,18 @@ const GAMES_CONFIG: Record<string, GameConfig> = {
     height: 600,
     showLives: false,
     showNext: false,
+    skins: false,
   },
 };
 
 const NEXT_SIZE = 120;
 const NEXT_BLOCK = 30;
 
-// Centra la pieza en una rejilla de 4×4 bloques, como el canvas "next" de la referencia
-function drawNext(canvas: HTMLCanvasElement, shape: NextShape) {
+// Canvas "siguiente" (solo Tetris): lo pinta React con la misma capa de dibujo que el motor
+function drawNext(canvas: HTMLCanvasElement, shape: NextShape, skin: ReturnType<typeof getSkin>) {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
-  ctx.clearRect(0, 0, NEXT_SIZE, NEXT_SIZE);
-  const offX = Math.floor((4 - shape[0].length) / 2);
-  const offY = Math.floor((4 - shape.length) / 2);
-  for (let r = 0; r < shape.length; r++)
-    for (let c = 0; c < shape[r].length; c++)
-      drawBlock(ctx, offX + c, offY + r, shape[r][c], NEXT_BLOCK);
+  drawNextPiece(ctx, skin, shape, NEXT_SIZE, NEXT_BLOCK);
 }
 
 const LED_LABEL: Record<GameHud["status"], string> = {
@@ -96,6 +108,10 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
   const nextCanvasRef = useRef<HTMLCanvasElement>(null);
   const [hud, setHud] = useState<GameHud>(INITIAL_HUD);
   const [save, setSave] = useState<SaveState>(IDLE);
+  const [skin, setSkin] = useSkin();
+  const [pendingSkin, setPendingSkin] = useState<SkinId | null>(null);
+  const instanceRef = useRef<GameInstance | null>(null);
+  const activeSkin: SkinId = config.skins ? skin : "neon";
 
   // El callback del motor se crea una vez por partida: lee estos refs en vez de props/estado.
   const userNameRef = useRef<string | null>(null);
@@ -126,36 +142,103 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
     const createGame = GAMES_CONFIG[gameId]?.create;
     if (!canvas || !createGame) return;
 
-    const instance = createGame(canvas, {
-      onNextChange: (shape) => {
-        if (nextCanvasRef.current) drawNext(nextCanvasRef.current, shape);
-      },
-      onHudChange: (next) => {
-        setHud(next);
+    const previewSkin = config.showNext ? getSkin(activeSkin) : null;
+    const instance = createGame(
+      canvas,
+      {
+        onNextChange: (shape) => {
+          if (nextCanvasRef.current && previewSkin)
+            drawNext(nextCanvasRef.current, shape, previewSkin);
+        },
+        onHudChange: (next) => {
+          setHud(next);
 
-        if (next.status === "gameover") {
-          // Una sola llamada por partida: pausar y reanudar sobre el gameover no repite.
-          if (!armedRef.current) return;
-          armedRef.current = false;
-          scoreRef.current = next.score;
-          if (next.score <= 0) return;
+          if (next.status === "gameover") {
+            // Una sola llamada por partida: pausar y reanudar sobre el gameover no repite.
+            if (!armedRef.current) return;
+            armedRef.current = false;
+            scoreRef.current = next.score;
+            if (next.score <= 0) return;
 
-          const name = userNameRef.current;
-          if (!name) {
-            setSave({ kind: "guest" });
-            return;
+            const name = userNameRef.current;
+            if (!name) {
+              setSave({ kind: "guest" });
+              return;
+            }
+            submit(next.score, name);
+          } else if (next.status !== "paused") {
+            // Partida nueva (restart): rearma y descarta cualquier guardado en vuelo.
+            armedRef.current = true;
+            runRef.current++;
+            setSave(IDLE);
           }
-          submit(next.score, name);
-        } else if (next.status !== "paused") {
-          // Partida nueva (restart): rearma y descarta cualquier guardado en vuelo.
-          armedRef.current = true;
-          runRef.current++;
-          setSave(IDLE);
-        }
+        },
       },
-    });
-    return () => instance.destroy();
-  }, [gameId, submit]);
+      { skin: activeSkin },
+    );
+    instanceRef.current = instance;
+    return () => {
+      instanceRef.current = null;
+      instance.destroy();
+    };
+  }, [gameId, submit, activeSkin, config.showNext]);
+
+  // Cambiar de vista recrea el motor (partida nueva): con partida en curso se pide confirmación
+  const pickSkin = (id: SkinId, e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur(); // sin foco, Espacio sigue siendo hard drop / reinicio
+    if (id === skin) {
+      setPendingSkin(null);
+      return;
+    }
+    if (hud.status !== "gameover" && hud.score > 0) {
+      instanceRef.current?.pause();
+      setPendingSkin(id);
+      return;
+    }
+    setPendingSkin(null);
+    setSkin(id);
+  };
+
+  const confirmSkin = (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    if (pendingSkin) setSkin(pendingSkin);
+    setPendingSkin(null);
+  };
+
+  const cancelSkin = (e: MouseEvent<HTMLButtonElement>) => {
+    e.currentTarget.blur();
+    setPendingSkin(null);
+    instanceRef.current?.resume();
+  };
+
+  const skinPicker = config.skins && (
+    <div className="skin-picker" role="group" aria-label="Vista del juego">
+      <div className="l">Vista</div>
+      {SKINS.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          className="skin-opt"
+          data-skin={s.id}
+          aria-pressed={s.id === skin}
+          onClick={(e) => pickSkin(s.id, e)}
+        >
+          {s.label}
+        </button>
+      ))}
+      {pendingSkin && (
+        <div className="skin-confirm" aria-live="polite">
+          <p>Cambiar de vista reinicia la partida.</p>
+          <button type="button" className="skin-confirm-yes" onClick={confirmSkin}>
+            Reiniciar
+          </button>
+          <button type="button" className="skin-confirm-no" onClick={cancelSkin}>
+            Seguir
+          </button>
+        </div>
+      )}
+    </div>
+  );
 
   const retry = (e: MouseEvent<HTMLButtonElement>) => {
     // Sin foco en el botón, Espacio reinicia la partida en vez de volver a pulsarlo.
@@ -195,6 +278,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
             </div>
           </div>
           <div className="hud-actions">
+            {!config.showNext && skinPicker}
             <Link href={`/juegos/${gameId}`} className="btn ghost">
               SALIR
             </Link>
@@ -202,7 +286,9 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
         </div>
 
         <div
-          className={`crt crt--game${config.showNext ? " crt--side" : ""}`}
+          className={`crt crt--game${config.showNext ? " crt--side" : ""}${
+            activeSkin !== "neon" ? ` crt--${activeSkin}` : ""
+          }`}
           data-status={hud.status}
         >
           <div className="crt-screen">
@@ -219,6 +305,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
               <div className="av-next-screen">
                 <canvas ref={nextCanvasRef} width={NEXT_SIZE} height={NEXT_SIZE} />
               </div>
+              {skinPicker}
             </aside>
           )}
           <div className="crt-bottom">

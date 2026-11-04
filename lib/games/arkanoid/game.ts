@@ -1,4 +1,4 @@
-import type { GameCallbacks, GameHud, GameInstance } from "../types";
+import type { GameCallbacks, GameHud, GameInstance, GameOptions } from "../types";
 import {
   BALL_SIZE,
   BASE_BALL_VX,
@@ -8,7 +8,6 @@ import {
   BLOCK_H,
   BLOCK_W,
   EXPLOSION_DURATION,
-  EXPLOSION_FRAMES,
   H,
   INITIAL_LIVES,
   PADDLE_BOUNCE_MARGIN,
@@ -17,18 +16,11 @@ import {
   PADDLE_W,
   PADDLE_Y,
   POINTS_PER_BLOCK,
-  SPRITESHEET_URL,
   W,
 } from "./constants";
-import {
-  drawFrame,
-  drawSprite,
-  type Ball,
-  type Block,
-  type Explosion,
-  type Paddle,
-} from "./entities";
+import type { Ball, Block, Explosion, Paddle } from "./entities";
 import { LEVELS } from "./levels";
+import { getSkin } from "./skins";
 import { collideAABB } from "./utils";
 
 type State = "playing" | "gameover";
@@ -36,11 +28,15 @@ type State = "playing" | "gameover";
 export function createArkanoidGame(
   canvas: HTMLCanvasElement,
   callbacks: GameCallbacks,
+  options: GameOptions = {},
 ): GameInstance {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return { pause() {}, resume() {}, restart() {}, destroy() {} };
   }
+
+  // Capa de dibujo: la simulación de abajo no depende del skin
+  const skin = getSkin(options.skin);
 
   // ── Estado del juego ────────────────────────────────────────────────────────
   const paddle: Paddle = { x: 0, y: PADDLE_Y, w: PADDLE_W, h: PADDLE_H };
@@ -56,7 +52,7 @@ export function createArkanoidGame(
 
   let paused = false;
   let destroyed = false;
-  let sprites: HTMLImageElement | null = null;
+  let ready = false; // el skin ya tiene sus assets cargados
   let lastTime: number | null = null;
   let rafId = 0;
   let lastHud: GameHud | null = null;
@@ -115,6 +111,7 @@ export function createArkanoidGame(
     won = false;
     initPaddle();
     loadLevel(1);
+    skin.resetEffects();
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
@@ -202,6 +199,7 @@ export function createArkanoidGame(
           elapsed: 0,
         });
         score += POINTS_PER_BLOCK;
+        skin.onBlockHit(block, POINTS_PER_BLOCK);
         ball.vy = -ball.vy;
         if (blocks.every((b) => !b.alive)) {
           if (currentLevel < LEVELS.length) loadLevel(currentLevel + 1);
@@ -232,48 +230,24 @@ export function createArkanoidGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
-  function drawOverlay(title: string, titleSize: number, sub: string[]) {
-    if (!ctx) return;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#fff";
-    ctx.font = `bold ${titleSize}px monospace`;
-    ctx.fillText(title, W / 2, H / 2 - 24);
-    ctx.font = "bold 18px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    sub.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 + 24 + i * 28));
-  }
-
   function draw() {
-    if (!ctx || !sprites) return;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
+    if (!ctx || !ready) return;
+    skin.drawBackground(ctx);
 
-    for (const block of blocks)
-      if (block.alive)
-        drawSprite(ctx, sprites, `block_${block.color}`, block.x, block.y, block.w, block.h);
+    for (const block of blocks) if (block.alive) skin.drawBlock(ctx, block);
+    for (const exp of explosions)
+      skin.drawExplosion(ctx, exp, Math.min(exp.elapsed / EXPLOSION_DURATION, 1));
 
-    for (const exp of explosions) {
-      const frameIndex = Math.min(Math.floor((exp.elapsed / EXPLOSION_DURATION) * 4), 3);
-      drawFrame(ctx, sprites, EXPLOSION_FRAMES[exp.color][frameIndex], exp.x, exp.y, exp.w, exp.h);
-    }
-
-    drawSprite(ctx, sprites, "paddle", paddle.x, paddle.y, paddle.w, paddle.h);
-    drawSprite(ctx, sprites, "ball", ball.x, ball.y, ball.w, ball.h);
+    skin.drawPaddle(ctx, paddle);
+    skin.drawBall(ctx, ball);
+    skin.drawEffects(ctx);
 
     if (state === "gameover") {
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, 0, W, H);
       const sub = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
-      if (won) drawOverlay("¡COMPLETASTE EL JUEGO!", 48, sub);
-      else drawOverlay("GAME OVER", 64, sub);
+      skin.drawOverlay(ctx, won ? "¡COMPLETASTE EL JUEGO!" : "GAME OVER", sub);
     }
 
-    if (paused) {
-      ctx.fillStyle = "rgba(0,0,0,0.65)";
-      ctx.fillRect(0, 0, W, H);
-      drawOverlay("PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
-    }
+    if (paused) skin.drawOverlay(ctx, "PAUSA", ["P / ESC PARA CONTINUAR"]);
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -281,6 +255,7 @@ export function createArkanoidGame(
     const dt = lastTime === null ? 0 : Math.min(ts - lastTime, 50) / 1000;
     lastTime = ts;
     update(dt);
+    skin.updateEffects(dt * 1000);
     draw();
     emitHud();
     rafId = requestAnimationFrame(loop);
@@ -312,7 +287,7 @@ export function createArkanoidGame(
     initGame();
     paused = false;
     emitHud();
-    if (sprites) startLoop();
+    if (ready) startLoop();
   }
 
   const onBlur = () => {
@@ -324,7 +299,8 @@ export function createArkanoidGame(
     if (document.hidden) pause();
   };
 
-  // ── Arranque: el loop empieza cuando el spritesheet está cargado ────────────
+  // ── Arranque: el loop empieza cuando el skin tiene sus assets (el clásico carga
+  // el spritesheet; neón y mario están listos al instante) ─────────────────────
   initGame();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
@@ -333,14 +309,12 @@ export function createArkanoidGame(
   document.addEventListener("visibilitychange", onVisibilityChange);
   canvas.addEventListener("mousemove", onMouseMove);
 
-  const img = new Image();
-  img.onload = () => {
+  const abortLoad = skin.load(() => {
     if (destroyed) return;
-    sprites = img;
-    startLoop();
-  };
-  img.onerror = () => console.error("No se pudo cargar el spritesheet de Arkanoid");
-  img.src = SPRITESHEET_URL;
+    ready = true;
+    if (paused) draw();
+    else startLoop();
+  });
 
   return {
     pause,
@@ -348,8 +322,7 @@ export function createArkanoidGame(
     restart,
     destroy() {
       destroyed = true;
-      img.onload = null;
-      img.onerror = null;
+      abortLoad();
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);

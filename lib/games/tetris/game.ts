@@ -1,19 +1,17 @@
-import type { GameCallbacks, GameHud, GameInstance } from "../types";
+import type { GameCallbacks, GameHud, GameInstance, GameOptions } from "../types";
 import {
   BLOCK,
   COLS,
   DROP_STEP,
-  GRID_LINE,
-  H,
   INITIAL_DROP_INTERVAL,
   KICKS,
   LINES_PER_LEVEL,
   LINE_SCORES,
   MIN_DROP_INTERVAL,
   ROWS,
-  W,
 } from "./constants";
-import { drawBlock, randomPiece, type Piece } from "./entities";
+import { randomPiece, type Piece } from "./entities";
+import { getSkin } from "./skins";
 import { createBoard, rotateCW } from "./utils";
 
 type State = "playing" | "gameover";
@@ -21,11 +19,15 @@ type State = "playing" | "gameover";
 export function createTetrisGame(
   canvas: HTMLCanvasElement,
   callbacks: GameCallbacks,
+  options: GameOptions = {},
 ): GameInstance {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return { pause() {}, resume() {}, restart() {}, destroy() {} };
   }
+
+  // Capa de dibujo: la simulación de abajo no depende del skin
+  const skin = getSkin(options.skin);
 
   // ── Estado del juego ────────────────────────────────────────────────────────
   let board = createBoard();
@@ -91,11 +93,15 @@ export function createTetrisGame(
   function merge() {
     for (let r = 0; r < current.shape.length; r++)
       for (let c = 0; c < current.shape[r].length; c++)
-        if (current.shape[r][c])
-          board[current.y + r][current.x + c] = current.shape[r][c];
+        if (current.shape[r][c]) board[current.y + r][current.x + c] = current.shape[r][c];
   }
 
   function clearLines() {
+    // Filas completas antes de colapsar, solo para los efectos visuales del skin
+    const fullRows: number[] = [];
+    board.forEach((row, r) => {
+      if (row.every((v) => v !== 0)) fullRows.push(r);
+    });
     let cleared = 0;
     for (let r = ROWS - 1; r >= 0; r--) {
       if (board[r].every((v) => v !== 0)) {
@@ -107,7 +113,9 @@ export function createTetrisGame(
     }
     if (cleared) {
       lines += cleared;
-      score += (LINE_SCORES[cleared] || 0) * level;
+      const gained = (LINE_SCORES[cleared] || 0) * level;
+      score += gained;
+      skin.onLinesCleared(fullRows, gained);
       level = Math.floor(lines / LINES_PER_LEVEL) + 1;
       dropInterval = Math.max(MIN_DROP_INTERVAL, INITIAL_DROP_INTERVAL - (level - 1) * DROP_STEP);
     }
@@ -156,6 +164,7 @@ export function createTetrisGame(
     state = "playing";
     dropInterval = INITIAL_DROP_INTERVAL;
     dropAccum = 0;
+    skin.resetEffects();
     next = randomPiece();
     spawn();
   }
@@ -201,6 +210,7 @@ export function createTetrisGame(
 
   // ── Update ──────────────────────────────────────────────────────────────────
   function update(dtMs: number) {
+    skin.updateEffects(dtMs);
     if (state === "gameover") return;
     dropAccum += dtMs;
     if (dropAccum >= dropInterval) {
@@ -211,64 +221,33 @@ export function createTetrisGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
-  function drawGrid() {
-    if (!ctx) return;
-    ctx.strokeStyle = GRID_LINE;
-    ctx.lineWidth = 0.5;
-    for (let c = 1; c < COLS; c++) {
-      ctx.beginPath();
-      ctx.moveTo(c * BLOCK, 0);
-      ctx.lineTo(c * BLOCK, H);
-      ctx.stroke();
-    }
-    for (let r = 1; r < ROWS; r++) {
-      ctx.beginPath();
-      ctx.moveTo(0, r * BLOCK);
-      ctx.lineTo(W, r * BLOCK);
-      ctx.stroke();
-    }
-  }
-
-  function drawOverlay(title: string, sub: string[]) {
-    if (!ctx) return;
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 34px monospace";
-    ctx.fillText(title, W / 2, H / 2 - 18);
-    ctx.font = "14px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    sub.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 + 14 + i * 22));
-  }
-
   function draw() {
     if (!ctx) return;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
-    drawGrid();
+    skin.drawBackground(ctx);
 
     for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++) drawBlock(ctx, c, r, board[r][c], BLOCK);
+      for (let c = 0; c < COLS; c++) skin.drawBlock(ctx, c, r, board[r][c], BLOCK);
 
     // Pieza fantasma
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
       for (let c = 0; c < current.shape[r].length; c++)
         if (current.shape[r][c])
-          drawBlock(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK, 0.2);
+          skin.drawGhost(ctx, current.x + c, gy + r, current.shape[r][c], BLOCK);
 
     // Pieza actual
     for (let r = 0; r < current.shape.length; r++)
       for (let c = 0; c < current.shape[r].length; c++)
-        drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+        skin.drawBlock(ctx, current.x + c, current.y + r, current.shape[r][c], BLOCK);
+
+    skin.drawEffects(ctx);
 
     if (state === "gameover") {
-      drawOverlay("GAME OVER", [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"]);
+      skin.drawOverlay(ctx, "GAME OVER", [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"], false);
     }
 
     if (paused) {
-      ctx.fillStyle = "rgba(0,0,0,0.55)";
-      ctx.fillRect(0, 0, W, H);
-      drawOverlay("PAUSA", ["P / ESC PARA CONTINUAR"]);
+      skin.drawOverlay(ctx, "PAUSA", ["P / ESC PARA CONTINUAR"], true);
     }
   }
 
