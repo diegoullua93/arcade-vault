@@ -210,6 +210,11 @@
   .av-nav .coin-counter { display: none; }
   .av-nav .hamburger { display: inline-flex; }
 }
+/* a 390px logo + sesión + menú no cabían con huecos de 24px y la página desbordaba 5px */
+@media (max-width: 480px) {
+  .av-nav { gap: 10px; }
+  .av-nav .auth-btn { margin-left: 0; }
+}
 
 .av-mobile-panel {
   position: fixed;
@@ -643,6 +648,7 @@
 .hud-stat .v { font-family: var(--pixel); font-size: 16px; color: var(--cyan); text-shadow: 0 0 6px rgba(0,245,255,0.5); }
 .hud-stat.lives .v { color: var(--magenta); text-shadow: 0 0 6px rgba(255,0,110,0.5); }
 .hud-stat.level .v { color: var(--yellow); text-shadow: 0 0 6px rgba(245,255,0,0.5); }
+.hud-stats { display: flex; gap: 24px; flex-wrap: wrap; }
 .hud-actions { display: flex; gap: 10px; }
 
 .crt {
@@ -1020,6 +1026,27 @@
 .touch-pad [aria-disabled="true"] { opacity: 0.28; }
 @media (prefers-reduced-motion: reduce) {
   .tp-dir, .tp-round { transition: none; }
+}
+
+/* móvil táctil: nav, HUD, marco y mando caben en 390×844 sin scroll de página.
+   Se compacta el HUD y los márgenes; el pie del sitio se oculta mientras se juega. */
+@media (hover: none) and (pointer: coarse) and (max-width: 640px) {
+  body:has(.touch-pad) footer { display: none; }
+  .av-player { margin: 10px auto 0; padding: 0 16px 12px; }
+  .player-hud { padding: 8px 12px; gap: 8px 12px; margin-bottom: 10px; }
+  .hud-stats { gap: 6px 14px; }
+  .hud-stat { gap: 2px; }
+  .hud-stat .l { font-size: 9px; }
+  .hud-stat .v { font-size: 12px; }
+  .hud-actions { gap: 6px 8px; flex-wrap: wrap; }
+  .hud-actions .skin-opt { white-space: nowrap; }
+  .hud-actions .btn { padding: 9px 14px; font-size: 9px; }
+  .crt-bottom { margin-top: 8px; }
+  .touch-pad { margin-top: 10px; padding: 10px 14px; gap: 8px 12px; }
+  .tp-dpad { grid-template: repeat(3, 48px) / repeat(3, 48px); }
+  .tp-round { width: 56px; height: 56px; }
+  /* Tetris: el alto del tablero descuenta lo que ocupan nav, HUD, marco y mando */
+  .crt.crt--game.crt--side { --av-board-h: clamp(240px, calc(100dvh - 476px), 600px); }
 }
 
 /* fake in-screen game */
