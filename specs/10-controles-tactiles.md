@@ -1,6 +1,6 @@
 # SPEC 10 — Controles táctiles para jugar en móvil
 
-> **Status:** approved
+> **Status:** implemented
 > **Depends on:** SPEC 05, SPEC 06, SPEC 07, SPEC 08, SPEC 09 (y el selector de skins de `GameScreen`, ya en el árbol de trabajo)
 > **Date:** 2026-11-04
 > **Objective:** Añadir a `/juegos/[id]/jugar` un mando táctil (cruceta + A/B + PAUSA) que solo aparece en dispositivos táctiles y emite `KeyboardEvent` sintéticos, de modo que Asteroids, Tetris, Arkanoid y Serpentina se puedan jugar de principio a fin con el dedo sin tocar ningún motor.

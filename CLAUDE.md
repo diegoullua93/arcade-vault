@@ -21,6 +21,10 @@ Usa siempre /frontend-design para diseñar la interfaz de usuario
 
 - Agente `skin-designer` (propio, `.claude/agents/skin-designer.md`): garantiza que cada juego de `PLAYABLE_GAME_IDS` tenga 3 skins de juego (`neon`, `classic`, `mario`; el de `mario` toma como referencia Serpentina). Audita qué falta, crea la infraestructura (`lib/games/skins.ts`, selector en `game-screen`) si no existe e implementa los skins por juego. Invócalo tras añadir cada juego nuevo (después de `/spec-impl`).
 
+- Agente `mobil-porter` (propio, `.claude/agents/mobil-porter.md`): garantiza que cada juego de `PLAYABLE_GAME_IDS` se vea y funcione en celular según el SPEC 10 (mando táctil, `touchKeys`/`touchRepeat`, layout 390×844 y 360×640, gestos, liberación de teclas). Audita, corrige solo la capa de React/CSS (`components/game/`, `app/globals.css`) y verifica con Playwright en emulación táctil; nunca toca `lib/games/**`. Invócalo tras añadir un juego (después de `/spec-impl` y `skin-designer`) o ante un problema en móvil.
+
+- `/spec-impl-game <NN-spec>` (propia, `.claude/skills/spec-impl-game/`): implementa un spec de juego de punta a punta encadenando, en orden y nunca en simultáneo, `/spec-impl`, el agente `skin-designer` y el agente `mobil-porter`. Si una fase falla, no ejecuta las siguientes.
+
 Versiones fijadas en `skills-lock.json` (instalación: `npx skills@latest add <repo>`).
 
 ## Tooling
