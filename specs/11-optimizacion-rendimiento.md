@@ -157,11 +157,54 @@ Antes de empezar: leer en `node_modules/next/dist/docs/` lo relativo a Client Co
 
 ## Resultados de medición
 
-_Se rellena durante la implementación (pasos 2 y 6)._
+### Método (paso 2, línea base «antes»)
 
-| Juego       | Skin | Frame medio (ms) antes → después | Frame p95 (ms) | Tareas largas | Heap/10 s (KB) | Renders React/s |
-| ----------- | ---- | -------------------------------- | -------------- | ------------- | -------------- | --------------- |
-| _pendiente_ |      |                                  |                |               |                |                 |
+- Build de producción (`next build` + `next start -p 3100`), Chromium de Playwright MCP, escritorio, sin sesión (jugador `INVITADO`).
+- Por juego y skin: 3 repeticiones de 10 s con el mismo guion de teclas sintéticas (un paso cada 120 ms), tras recargar y esperar 1,5 s y forzar un GC. Si el juego llega a `gameover` el guion lo reinicia con `Espacio`.
+- Cada celda es **mediana (peor de las 3)**. El peor valor es el umbral del criterio «ninguna métrica empeora».
+- Solo **Tetris** y **Arkanoid** tienen 3 skins hoy (`skins: true` en `GAMES_CONFIG`); **Asteroids** y **Serpentina** tienen un solo aspecto (`skins: false`) y se miden una vez.
+- «Renders React/s» son commits de React por segundo (hook mínimo de DevTools); incluye todos los roots, no solo `GameScreen`.
+- Los guiones de teclas son deterministas pero los motores usan aleatoriedad (piezas, asteroides, núcleos), así que puntuación y nivel no son idénticos entre pasadas.
+
+### Pasada normal (CPU sin limitar)
+
+El navegador queda limitado por vsync: todos los juegos dan 16,7 ms por frame y no hay tareas largas, así que **esta pasada no distingue entre versiones**. Solo sirve de comprobación de que no hay regresión grave. Con la CPU limitada 4× el resultado es el mismo (p. ej. Asteroids: 16,7 ms de media), por eso se usa 20×.
+
+| Juego      | Skin    | Frame medio (ms) | Frame p95 (ms) | Tareas largas | Heap/10 s (KB) | Renders React/s |
+| ---------- | ------- | ---------------- | -------------- | ------------- | -------------- | --------------- |
+| Asteroids  | único   | 16,69 (16,69)    | 16,8 (16,8)    | 0 (0)         | 607 (795)      | 1,1 (1,1)       |
+| Serpentina | único   | 16,69 (16,69)    | 16,8 (16,8)    | 0 (0)         | 624 (624)      | 0 (0)           |
+| Tetris     | neon    | 16,67 (16,69)    | 17,0 (17,0)    | 0 (0)         | 739 (740)      | 1,5 (1,5)       |
+| Tetris     | classic | 16,67 (16,69)    | 17,0 (17,0)    | 0 (0)         | 581 (1043)     | 1,5 (1,5)       |
+| Tetris     | mario   | 16,67 (16,72)    | 16,9 (17,0)    | 0 (0)         | 744 (752)      | 1,5 (1,5)       |
+| Arkanoid   | neon    | 16,69 (16,69)    | 17,0 (17,0)    | 0 (0)         | 379 (738)      | 0,9 (0,9)       |
+| Arkanoid   | classic | 16,72 (16,75)    | 17,0 (17,0)    | 0 (0)         | 609 (656)      | 0,9 (0,9)       |
+| Arkanoid   | mario   | 16,67 (16,67)    | 16,9 (17,0)    | 0 (0)         | 1009 (1052)    | 0,9 (0,9)       |
+
+### Pasada con CPU limitada 20× (CDP `Emulation.setCPUThrottlingRate`)
+
+Es la pasada que discrimina. A 20× los juegos corren a unos 8–14 fps y el tiempo de frame refleja el coste real por frame.
+
+| Juego      | Skin    | Frame medio (ms) | Frame p95 (ms) | Tareas largas | Heap/10 s (KB) | Renders React/s |
+| ---------- | ------- | ---------------- | -------------- | ------------- | -------------- | --------------- |
+| Asteroids  | único   | 80,3 (97,1)      | 166,6 (200,1)  | 109 (113)     | 1048 (1058)    | 0,6 (0,6)       |
+| Serpentina | único   | 72,5 (73,6)      | 100,3 (116,7)  | 107 (115)     | 202 (211)      | 0 (0)           |
+| Tetris     | neon    | 72,3 (74,2)      | 150,1 (166,7)  | 88 (103)      | 578 (607)      | 1,2 (1,3)       |
+| Tetris     | classic | 76,1 (76,1)      | 166,6 (166,6)  | 101 (104)     | 759 (798)      | 1,1 (1,19)      |
+| Tetris     | mario   | 88,6 (90,7)      | 183,2 (183,3)  | 116 (117)     | 683 (694)      | 0,9 (0,9)       |
+| Arkanoid   | neon    | 119,0 (122,7)    | 183,4 (183,4)  | 87 (91)       | 794 (838)      | 0,3 (0,3)       |
+| Arkanoid   | classic | 120,4 (129,5)    | 166,7 (216,7)  | 86 (87)       | 601 (619)      | 0,3 (0,3)       |
+| Arkanoid   | mario   | 126,1 (134,4)    | 199,9 (233,4)  | 82 (87)       | 766 (976)      | 0,3 (0,6)       |
+
+### Hallazgos de la línea base (hipótesis para el paso 3)
+
+1. **Arkanoid es el más caro** (≈ 119–126 ms/frame a 20×) y **mario** es el skin más caro en Tetris (88,6 frente a 72–76 ms) y en Arkanoid.
+2. **Serpentina y Tetris cuestan ≈ 72 ms/frame a 20× siendo juegos muy simples** (Serpentina no tiene React por frame: 0 commits/s). Un coste tan alto y parecido entre juegos distintos apunta a un coste fijo por frame (relleno del canvas, capas CSS del marco CRT, composición) más que a la lógica del motor. **Primer experimento del paso 3:** medir la pantalla de juego con el motor en pausa y sin efectos CRT para separar el coste de los motores del de la página.
+3. **React no es el cuello de botella**: 0–1,5 commits/s, ningún render por frame. Los puntos de la capa React se limitan a lo que midan los renders (p. ej. `onHudChange` en Asteroids y Tetris).
+4. **El heap de 10 s es una métrica débil**: todos los juegos crecen menos de 1,1 MB y la tercera repetición suele salir más baja (GC). Se mantiene como indicador secundario; la señal principal es el frame medio/p95 y las tareas largas a 20×.
+5. El número de tareas largas a 20× (≈ 80–117 en 10 s) es casi uno por frame, es decir, no discrimina entre juegos; se conserva para detectar regresiones.
+
+_La columna «después» se añade en el paso 6 con las mismas tablas._
 
 ## What is **not** in this spec
 
