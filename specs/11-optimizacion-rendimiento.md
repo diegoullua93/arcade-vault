@@ -141,6 +141,15 @@ Antes de empezar: leer en `node_modules/next/dist/docs/` lo relativo a Client Co
 - **No:** calidad adaptativa, `OffscreenCanvas` en Worker, WebGL o WASM. Son rediseños, no optimizaciones de lo existente.
 - **Sí:** la guía vive en `add-game/references/performance.md` y se enlaza desde los agentes, decisión del usuario. Es el sitio donde ya viven el contrato del motor y la integración, y los agentes ya los leen.
 - **Sí:** guion de medición en el scratchpad y no en el repo. Evita añadir tooling que el repo no usa (no hay test runner); la tabla del spec documenta el método.
+- **Sí:** medir con la CPU limitada 20×, no 4×. A velocidad normal y a 4× el navegador está limitado por vsync (16,7 ms) y no distingue versiones; a 20× aparece el coste real por frame.
+- **No (descartado tras medir):** dibujar todos los asteroides y todas las balas en un solo trazo. No es más rápido (a 20 asteroides, 2,65 ms frente a 2,0–2,1 ms) y cambia los píxeles de los bordes (hasta 188 niveles donde se cruzan los trazos). Se revirtió; `entities.ts` de Asteroids queda sin cambios.
+- **Sí:** capa fuera de pantalla para el tablero asentado de Tetris y para fondo + bloques de Arkanoid, con contador de versión. Es exacta porque se repinta con las mismas operaciones y orden, y porque los `drawBlock` de los skins son puros.
+- **Sí:** saltar los frames sin cambios en Tetris con `isAnimating?` opcional en los skins (si falta se repinta siempre; al terminar una animación se pinta un frame más). No aplica a Arkanoid, Asteroids ni Serpentina, donde algo se mueve en cada frame.
+- **Sí:** repintado parcial con `clip` en Serpentina (solo moneda y destellos entre pasos), con repintado completo en cada paso de la serpiente y mientras hay overlay.
+- **Sí:** `useHydrated()` y esperar a hidratar antes de crear el motor. Con una vista guardada distinta de `neon` se construía y destruía un motor por recarga; con el cambio hay exactamente uno.
+- **No:** `useCallback`/`useMemo` en la pantalla de juego. La medición de renders no los justificó (nunca hay un render por frame).
+- **No (fuera de alcance, candidato a un spec futuro):** los efectos CSS de fondo de la página (`.av-bg`, ruido SVG, scanlines con `mix-blend-mode`, `backdrop-filter` de la nav). Medido en Serpentina, cuestan ≈ 27 ms por frame a 20×, casi lo mismo que el motor entero, pero son globales y tocarlos puede cambiar el aspecto del sitio.
+- **Sí:** distancias con el cuadrado en Asteroids en lugar de `Math.hypot`. Es matemáticamente lo mismo; solo podría diferir en el último bit justo en el borde exacto de una colisión.
 
 ## Risks
 
@@ -204,7 +213,49 @@ Es la pasada que discrimina. A 20× los juegos corren a unos 8–14 fps y el tie
 4. **El heap de 10 s es una métrica débil**: todos los juegos crecen menos de 1,1 MB y la tercera repetición suele salir más baja (GC). Se mantiene como indicador secundario; la señal principal es el frame medio/p95 y las tareas largas a 20×.
 5. El número de tareas largas a 20× (≈ 80–117 en 10 s) es casi uno por frame, es decir, no discrimina entre juegos; se conserva para detectar regresiones.
 
-_La columna «después» se añade en el paso 6 con las mismas tablas._
+### Medición final «después» (paso 6)
+
+Mismo guion, build de producción de la rama (motores + `useHydrated`), navegador limpio (sin la instrumentación del paso 4, que falseó una primera pasada). Formato: mediana (peor de las 3).
+
+**Pasada normal (1×).** Sigue limitada por vsync: frame medio 16,67 ms y 0 tareas largas en las 8 combinaciones; p95 entre 17,0 y 17,1 ms (la diferencia de 0,1 ms con la línea base es ruido de vsync).
+
+| Juego      | Skin    | Heap/10 s (KB) | Renders React/s |
+| ---------- | ------- | -------------- | --------------- |
+| Asteroids  | único   | 602 (685)      | 1,2 (1,9)       |
+| Serpentina | único   | 458 (463)      | 0 (0)           |
+| Tetris     | neon    | 732 (732)      | 1,5 (1,5)       |
+| Tetris     | classic | 795 (805)      | 1,5 (1,5)       |
+| Tetris     | mario   | 841 (910)      | 1,5 (1,5)       |
+| Arkanoid   | neon    | 484 (551)      | 0,9 (0,9)       |
+| Arkanoid   | classic | 1441 (1442)    | 0,9 (0,9)       |
+| Arkanoid   | mario   | 454 (1862)     | 0,9 (0,9)       |
+
+**Pasada con CPU limitada 20×.**
+
+| Juego      | Skin    | Frame medio (ms) | Frame p95 (ms) | Tareas largas | Heap/10 s (KB) | Renders React/s |
+| ---------- | ------- | ---------------- | -------------- | ------------- | -------------- | --------------- |
+| Asteroids  | único   | 32,4 (34,0)      | 50,0 (50,1)    | 1 (2)         | 857 (881)      | 0,9 (1,2)       |
+| Serpentina | único   | 28,6 (29,1)      | 33,5 (33,5)    | 0 (0)         | 301 (364)      | 0 (0)           |
+| Tetris     | neon    | 49,6 (58,2)      | 166,7 (216,6)  | 38 (49)       | 493 (706)      | 1,0 (1,5)       |
+| Tetris     | classic | 42,2 (52,5)      | 100,0 (166,6)  | 43 (58)       | 673 (771)      | 1,3 (1,5)       |
+| Tetris     | mario   | 58,7 (101,2)     | 150,1 (283,3)  | 59 (63)       | 570 (806)      | 1,0 (1,49)      |
+| Arkanoid   | neon    | 41,4 (64,7)      | 83,3 (150,1)   | 19 (60)       | 798 (1772)     | 0,9 (3,6)       |
+| Arkanoid   | classic | 32,6 (34,5)      | 50,1 (50,1)    | 8 (9)         | 626 (850)      | 0,8 (1,5)       |
+| Arkanoid   | mario   | 34,2 (38,8)      | 66,6 (66,7)    | 9 (15)        | 677 (1121)     | 0,8 (1,0)       |
+
+### Estado de la verificación (lo que NO está cerrado)
+
+- **La comparación antes/después no es limpia.** La línea base y esta medición son de sesiones distintas y el ordenador cambia de carga entre ellas: Serpentina dio 72,5 ms en la línea base, 65,0 ms recién optimizada y 28,6 ms en la pasada final; en Tetris las repeticiones de una misma pasada oscilan entre 25 y 101 ms. Con esa deriva, «ninguna métrica empeora» **no se puede afirmar con rigor** (hay valores peores que el peor de la línea base: Tetris neón p95 216,6 > 166,7, Tetris mario frame 101,2 > 90,7, y el heap en varias skins).
+- **Comparación A/B en la misma sesión (pendiente).** Se construyó el código anterior (commit `9a513d8`, `git worktree` en `../arcade-vault-baseline`, puerto 3101) para medir «antes» y «después» alternados, repetición a repetición. Una primera ejecución salió inservible (carga puntual del equipo: Tetris a 150–550 ms por frame en ambos lados, 19 frames en 10 s en una repetición); una segunda quedó en marcha en segundo plano al cerrar esta sesión y **su resultado no está incorporado**. En la ejecución inservible, aun así, Arkanoid salió mejor en las 9 parejas (≈ 25 % en neón y classic, ≈ 45 % en mario) y Tetris mario en las 3; Asteroids, Serpentina y Tetris neón/classic salieron mezclados.
+- **Qué sí está comprobado:** equivalencia de píxeles (0 diferencias > 16 en Tetris y Arkanoid con las 3 skins, y en Serpentina; Asteroids por equivalencia de las operaciones), listeners/rAF/intervalos a 0 tras SALIR, un único motor por carga, `tsc` y `eslint` limpios.
+- **Para cerrar el spec:** repetir el A/B con el equipo en reposo, anotar sus medianas y marcar los criterios de _Medición_; solo entonces pasar `Status` a `implemented`. Después limpiar: `git worktree remove ../arcade-vault-baseline --force` y parar los servidores de los puertos 3100 y 3101.
+
+### Limitaciones de las métricas
+
+- **Heap/10 s:** diente de sierra del recolector (ruido de ±500 KB, con repeticiones bimodales); es indicador, no veredicto.
+- **Renders React/s:** dependen del tiempo de juego simulado por ventana (a 20× el motor recorta cada frame a 50 ms), no solo del código; nunca hay un render por frame.
+- **Tareas largas:** a 20× casi todos los frames lo son en la línea base, así que solo sirven para detectar regresiones.
+- **Pasada a 1×:** limitada por vsync (16,67 ms); no distingue versiones.
 
 ## What is **not** in this spec
 
