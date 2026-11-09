@@ -58,7 +58,7 @@ Contrato, para no tocar la lógica de ningún motor:
 - La **jugabilidad no cambia** con el skin: mismas hitboxes, velocidades, puntuación y controles. Si un skin necesita sprites más grandes, se escalan solo visualmente.
 - Legibilidad ante todo: contraste suficiente en los 3 skins; lo peligroso se distingue por forma y color.
 - Sin assets binarios nuevos salvo necesidad real; preferible dibujar en canvas. Si se usan, van en `public/games/<id>/` y el motor los carga y aborta si se destruye mientras tanto.
-- Rendimiento: nada de crear gradientes o canvases por frame; cachea lo estático.
+- Rendimiento: nada de crear gradientes o canvases por frame; cachea lo estático. Lee y cumple `.claude/skills/add-game/references/performance.md` (§ 2.2 y 2.4): `drawBlock` y el resto de funciones de dibujo deben ser **puras** (sin estado ni tiempo) para que el motor pueda cachear capas, y un skin con animaciones expone `isAnimating()` (devuelve `true` mientras haya efectos activos).
 - Prettier `printWidth: 100`; los hooks de formato corren tras cada Write/Edit, corrige lo que reporten.
 - Cuando se añada un juego nuevo: el spec/`/add-game` solo entrega su skin base; tú completas los otros dos.
 

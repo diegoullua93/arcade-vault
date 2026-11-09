@@ -66,6 +66,7 @@ Usa `Skill` con `frontend-design` antes de cambiar cualquier diseño (lo exige `
 - `dvh`, no `vh` (barra de URL dinámica). Nada de alturas fijas en px que rompan 360×640.
 - El mando conserva un solo aspecto en los 3 skins.
 - Sin JS de detección de dispositivo ni estado que difiera entre servidor y cliente (hidratación).
+- Rendimiento de la capa React: lee y cumple `.claude/skills/add-game/references/performance.md` § 3 (el motor se crea una vez y espera a `useHydrated()`, ningún re-render por frame, limpieza completa al salir). El mando táctil no debe añadir renders de `GameScreen` ni temporizadores fuera de `use-touch-keys.ts`.
 - Prettier `printWidth: 100`; los hooks de formato corren tras cada Write/Edit, corrige lo que reporten.
 - No añadas dependencias.
 
