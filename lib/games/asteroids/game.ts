@@ -14,7 +14,7 @@ import {
   Ship,
   type Keys,
 } from "./entities";
-import { dist, rand } from "./utils";
+import { rand, within } from "./utils";
 
 type State = "playing" | "dead" | "gameover";
 
@@ -81,24 +81,32 @@ export function createAsteroidsGame(
   let lastHud: GameHud | null = null;
 
   function emitHud() {
-    const hud: GameHud = {
-      score,
-      lives,
-      level,
-      status: paused ? "paused" : state,
-    };
+    const status = paused ? "paused" : state;
     if (
       lastHud &&
-      lastHud.score === hud.score &&
-      lastHud.lives === hud.lives &&
-      lastHud.level === hud.level &&
-      lastHud.status === hud.status
+      lastHud.score === score &&
+      lastHud.lives === lives &&
+      lastHud.level === level &&
+      lastHud.status === status
     ) {
       return;
     }
-    lastHud = hud;
-    callbacks.onHudChange(hud);
+    lastHud = { score, lives, level, status };
+    callbacks.onHudChange(lastHud);
   }
+
+  // Quita en el sitio las entidades muertas conservando el orden (sin crear un array por frame)
+  function compact(list: { dead: boolean }[]) {
+    let kept = 0;
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      if (!item.dead) list[kept++] = item;
+    }
+    list.length = kept;
+  }
+
+  // Asteroides nacidos de una división este frame (se reutiliza entre frames)
+  const spawned: Asteroid[] = [];
 
   function spawnAsteroids(count: number) {
     const SAFE_DIST = 130;
@@ -158,16 +166,16 @@ export function createAsteroidsGame(
   function update(dt: number) {
     if (state === "gameover") {
       if (pressed("Space")) initGame();
-      particles.forEach((p) => p.update(dt));
-      particles = particles.filter((p) => !p.dead);
+      for (let i = 0; i < particles.length; i++) particles[i].update(dt);
+      compact(particles);
       return;
     }
 
     if (state === "dead") {
       deadTimer -= dt;
-      particles.forEach((p) => p.update(dt));
-      particles = particles.filter((p) => !p.dead);
-      asteroids.forEach((a) => a.update(dt));
+      for (let i = 0; i < particles.length; i++) particles[i].update(dt);
+      compact(particles);
+      for (let i = 0; i < asteroids.length; i++) asteroids[i].update(dt);
       if (deadTimer <= 0) {
         state = "playing";
         ship.reset();
@@ -181,32 +189,32 @@ export function createAsteroidsGame(
     }
 
     ship.update(dt, keys);
-    bullets.forEach((b) => b.update(dt));
-    asteroids.forEach((a) => a.update(dt));
-    particles.forEach((p) => p.update(dt));
-    powerUps.forEach((p) => p.update(dt));
+    for (let i = 0; i < bullets.length; i++) bullets[i].update(dt);
+    for (let i = 0; i < asteroids.length; i++) asteroids[i].update(dt);
+    for (let i = 0; i < particles.length; i++) particles[i].update(dt);
+    for (let i = 0; i < powerUps.length; i++) powerUps[i].update(dt);
 
-    bullets = bullets.filter((b) => !b.dead);
-    particles = particles.filter((p) => !p.dead);
-    powerUps = powerUps.filter((p) => !p.dead);
+    compact(bullets);
+    compact(particles);
+    compact(powerUps);
 
     for (const p of powerUps) {
-      if (!p.dead && dist(ship, p) < ship.radius + p.radius) {
+      if (!p.dead && within(ship, p, ship.radius + p.radius)) {
         p.dead = true;
         ship.tripleShot = POWERUP_DURATION;
       }
     }
 
     // Bala vs asteroide
-    const newAsteroids: Asteroid[] = [];
+    spawned.length = 0;
     for (const b of bullets) {
       for (const a of asteroids) {
-        if (!a.dead && !b.dead && dist(b, a) < a.radius) {
+        if (!a.dead && !b.dead && within(b, a, a.radius)) {
           b.dead = true;
           a.dead = true;
           score += POINTS[a.size];
           explode(a.x, a.y, a.size * 5);
-          newAsteroids.push(...a.split());
+          spawned.push(...a.split());
           if (!powerUpSpawned) {
             killsSinceSpawn++;
             const guaranteed = killsSinceSpawn >= 5;
@@ -218,13 +226,14 @@ export function createAsteroidsGame(
         }
       }
     }
-    asteroids = asteroids.filter((a) => !a.dead).concat(newAsteroids);
-    bullets = bullets.filter((b) => !b.dead);
+    compact(asteroids);
+    for (let i = 0; i < spawned.length; i++) asteroids.push(spawned[i]);
+    compact(bullets);
 
     // Nave vs asteroide
     if (ship.invincible <= 0) {
       for (const a of asteroids) {
-        if (dist(ship, a) < ship.radius + a.radius * 0.82) {
+        if (within(ship, a, ship.radius + a.radius * 0.82)) {
           killShip();
           break;
         }
@@ -252,10 +261,11 @@ export function createAsteroidsGame(
     ctx.fillStyle = "#000";
     ctx.fillRect(0, 0, W, H);
 
-    particles.forEach((p) => p.draw(ctx));
-    asteroids.forEach((a) => a.draw(ctx));
-    powerUps.forEach((p) => p.draw(ctx));
-    bullets.forEach((b) => b.draw(ctx));
+    for (let i = 0; i < particles.length; i++) particles[i].draw(ctx);
+
+    for (let i = 0; i < asteroids.length; i++) asteroids[i].draw(ctx);
+    for (let i = 0; i < powerUps.length; i++) powerUps[i].draw(ctx);
+    for (let i = 0; i < bullets.length; i++) bullets[i].draw(ctx);
     ship.draw(ctx);
 
     // El resto del HUD vive en React; aquí solo el contador que cambia cada frame

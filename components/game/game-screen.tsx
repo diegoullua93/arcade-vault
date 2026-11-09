@@ -19,7 +19,7 @@ import type {
   NextShape,
 } from "@/lib/games/types";
 import { TouchControls, type TouchKey } from "./touch-controls";
-import { useSkin } from "./use-skin";
+import { useHydrated, useSkin } from "./use-skin";
 
 type GameConfig = {
   create: (
@@ -120,6 +120,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
   const [hud, setHud] = useState<GameHud>(INITIAL_HUD);
   const [save, setSave] = useState<SaveState>(IDLE);
   const [skin, setSkin] = useSkin();
+  const hydrated = useHydrated();
   const [pendingSkin, setPendingSkin] = useState<SkinId | null>(null);
   const instanceRef = useRef<GameInstance | null>(null);
   const activeSkin: SkinId = config.skins ? skin : "neon";
@@ -158,7 +159,9 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
   useEffect(() => {
     const canvas = canvasRef.current;
     const createGame = GAMES_CONFIG[gameId]?.create;
-    if (!canvas || !createGame) return;
+    // Hasta hidratar, `skin` es el de por defecto aunque haya otra guardada: se espera para crear
+    // el motor una sola vez con la vista correcta
+    if (!canvas || !createGame || !hydrated) return;
 
     const previewSkin = config.showNext ? getSkin(activeSkin) : null;
     const instance = createGame(
@@ -199,7 +202,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
       instanceRef.current = null;
       instance.destroy();
     };
-  }, [gameId, submit, activeSkin, config.showNext]);
+  }, [gameId, submit, activeSkin, config.showNext, hydrated]);
 
   // Cambiar de vista recrea el motor (partida nueva): con partida en curso se pide confirmación
   const pickSkin = (id: SkinId, e: MouseEvent<HTMLButtonElement>) => {

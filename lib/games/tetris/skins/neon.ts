@@ -94,5 +94,6 @@ export function createNeonSkin(): TetrisSkin {
     updateEffects() {},
     drawEffects() {},
     resetEffects() {},
+    isAnimating: () => false,
   };
 }

@@ -161,5 +161,6 @@ export function createClassicSkin(): TetrisSkin {
     resetEffects() {
       flashes = [];
     },
+    isAnimating: () => flashes.length > 0,
   };
 }

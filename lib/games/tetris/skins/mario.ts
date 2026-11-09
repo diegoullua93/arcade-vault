@@ -325,5 +325,6 @@ export function createMarioSkin(): TetrisSkin {
     resetEffects() {
       bursts = [];
     },
+    isAnimating: () => bursts.length > 0,
   };
 }

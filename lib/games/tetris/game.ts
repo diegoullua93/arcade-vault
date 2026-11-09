@@ -3,12 +3,14 @@ import {
   BLOCK,
   COLS,
   DROP_STEP,
+  H,
   INITIAL_DROP_INTERVAL,
   KICKS,
   LINES_PER_LEVEL,
   LINE_SCORES,
   MIN_DROP_INTERVAL,
   ROWS,
+  W,
 } from "./constants";
 import { randomPiece, type Piece } from "./entities";
 import { getSkin } from "./skins";
@@ -46,24 +48,40 @@ export function createTetrisGame(
   let lastHud: GameHud | null = null;
 
   function emitHud() {
-    const hud: GameHud = {
-      score,
-      lives: 0, // Tetris no tiene vidas; GameScreen oculta la casilla
-      level,
-      status: paused ? "paused" : state,
-    };
+    const status = paused ? "paused" : state;
     if (
       lastHud &&
-      lastHud.score === hud.score &&
-      lastHud.lives === hud.lives &&
-      lastHud.level === hud.level &&
-      lastHud.status === hud.status
+      lastHud.score === score &&
+      lastHud.level === level &&
+      lastHud.status === status
     ) {
       return;
     }
-    lastHud = hud;
-    callbacks.onHudChange(hud);
+    // Tetris no tiene vidas (lives: 0); GameScreen oculta la casilla
+    lastHud = { score, lives: 0, level, status };
+    callbacks.onHudChange(lastHud);
   }
+
+  // ── Render: capa del tablero y frames sin cambios ───────────────────────────
+  // El tablero asentado (fondo + bloques fijos) solo cambia al fijar una pieza: se pinta en un
+  // canvas fuera de pantalla y cada frame lo copia (mismas operaciones y orden que antes, así
+  // que el resultado es el mismo). `boardVersion` sube cada vez que cambia el tablero.
+  const boardLayer = document.createElement("canvas");
+  boardLayer.width = W;
+  boardLayer.height = H;
+  const boardCtx = boardLayer.getContext("2d");
+  let boardVersion = 0;
+  let layerVersion = -1;
+
+  // Un frame se repinta solo si cambió algo visible desde el último que se pintó
+  let forceDraw = true; // arranque, pausa, reanudar y reinicio
+  let drawnState: State | null = null;
+  let drawnPiece: Piece | null = null;
+  let drawnShape: number[][] | null = null;
+  let drawnX = 0;
+  let drawnY = 0;
+  let drawnVersion = -1;
+  let drawnAnimating = false;
 
   // ── Lógica del tablero ──────────────────────────────────────────────────────
   function collide(shape: number[][], ox: number, oy: number) {
@@ -137,6 +155,7 @@ export function createTetrisGame(
   function lockPiece() {
     merge();
     clearLines();
+    boardVersion++;
     spawn();
   }
 
@@ -158,6 +177,8 @@ export function createTetrisGame(
 
   function initGame() {
     board = createBoard();
+    boardVersion++;
+    forceDraw = true;
     score = 0;
     lines = 0;
     level = 1;
@@ -221,13 +242,51 @@ export function createTetrisGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
+  function renderBoardLayer(target: CanvasRenderingContext2D) {
+    skin.drawBackground(target);
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++) skin.drawBlock(target, c, r, board[r][c], BLOCK);
+  }
+
+  function needsDraw() {
+    return (
+      forceDraw ||
+      state !== drawnState ||
+      current !== drawnPiece ||
+      current.shape !== drawnShape ||
+      current.x !== drawnX ||
+      current.y !== drawnY ||
+      boardVersion !== drawnVersion ||
+      drawnAnimating || // el último frame tenía animación: uno más para dejarlo limpio
+      (skin.isAnimating ? skin.isAnimating() : true)
+    );
+  }
+
   function draw() {
     if (!ctx) return;
-    skin.drawBackground(ctx);
+    drawnState = state;
+    drawnPiece = current;
+    drawnShape = current.shape;
+    drawnX = current.x;
+    drawnY = current.y;
+    drawnVersion = boardVersion;
+    drawnAnimating = skin.isAnimating ? skin.isAnimating() : true;
+    forceDraw = false;
 
-    for (let r = 0; r < ROWS; r++)
-      for (let c = 0; c < COLS; c++) skin.drawBlock(ctx, c, r, board[r][c], BLOCK);
+    if (boardCtx) {
+      if (layerVersion !== boardVersion) {
+        renderBoardLayer(boardCtx);
+        layerVersion = boardVersion;
+      }
+      ctx.drawImage(boardLayer, 0, 0);
+    } else {
+      renderBoardLayer(ctx);
+    }
+    drawPieces(ctx);
+  }
 
+  // Fantasma, pieza actual, efectos y overlays: se pintan encima del tablero en cada repintado
+  function drawPieces(ctx: CanvasRenderingContext2D) {
     // Pieza fantasma
     const gy = ghostY();
     for (let r = 0; r < current.shape.length; r++)
@@ -256,7 +315,7 @@ export function createTetrisGame(
     const dt = lastTime === null ? 0 : Math.min(ts - lastTime, 50);
     lastTime = ts;
     update(dt);
-    draw();
+    if (needsDraw()) draw();
     emitHud();
     rafId = requestAnimationFrame(loop);
   }
@@ -279,6 +338,7 @@ export function createTetrisGame(
   function resume() {
     if (!paused) return;
     paused = false;
+    forceDraw = true; // quita el overlay de PAUSA en el primer frame
     emitHud();
     startLoop();
   }

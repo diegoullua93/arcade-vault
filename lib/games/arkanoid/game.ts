@@ -58,24 +58,29 @@ export function createArkanoidGame(
   let lastHud: GameHud | null = null;
 
   function emitHud() {
-    const hud: GameHud = {
-      score,
-      lives,
-      level: currentLevel,
-      status: paused ? "paused" : state,
-    };
+    const status = paused ? "paused" : state;
     if (
       lastHud &&
-      lastHud.score === hud.score &&
-      lastHud.lives === hud.lives &&
-      lastHud.level === hud.level &&
-      lastHud.status === hud.status
+      lastHud.score === score &&
+      lastHud.lives === lives &&
+      lastHud.level === currentLevel &&
+      lastHud.status === status
     ) {
       return;
     }
-    lastHud = hud;
-    callbacks.onHudChange(hud);
+    lastHud = { score, lives, level: currentLevel, status };
+    callbacks.onHudChange(lastHud);
   }
+
+  // Capa estática: fondo + bloques vivos en un canvas fuera de pantalla. Solo cambia al romper un
+  // bloque o cargar un nivel (`blocksVersion`); cada frame la copia en vez de repintar cada bloque
+  // (mismas operaciones y orden que antes, así que el resultado es el mismo).
+  const blocksLayer = document.createElement("canvas");
+  blocksLayer.width = W;
+  blocksLayer.height = H;
+  const layerCtx = blocksLayer.getContext("2d");
+  let blocksVersion = 0;
+  let layerVersion = -1;
 
   // ── Lógica ──────────────────────────────────────────────────────────────────
   function initPaddle() {
@@ -101,6 +106,7 @@ export function createArkanoidGame(
       alive: true,
     }));
     explosions = [];
+    blocksVersion++;
     initBall();
   }
 
@@ -190,6 +196,7 @@ export function createArkanoidGame(
       if (!block.alive) continue;
       if (collideAABB(ball, block)) {
         block.alive = false;
+        blocksVersion++;
         explosions.push({
           x: block.x,
           y: block.y,
@@ -213,8 +220,14 @@ export function createArkanoidGame(
     }
 
     // Explosiones
-    for (const exp of explosions) exp.elapsed += dt * 1000;
-    explosions = explosions.filter((exp) => exp.elapsed < EXPLOSION_DURATION);
+    // Avanza y descarta las explosiones terminadas en el sitio (sin crear un array por frame)
+    let kept = 0;
+    for (let i = 0; i < explosions.length; i++) {
+      const exp = explosions[i];
+      exp.elapsed += dt * 1000;
+      if (exp.elapsed < EXPLOSION_DURATION) explosions[kept++] = exp;
+    }
+    explosions.length = kept;
 
     // Pelota perdida
     if (ball.y > H) {
@@ -232,9 +245,17 @@ export function createArkanoidGame(
   // ── Draw ────────────────────────────────────────────────────────────────────
   function draw() {
     if (!ctx || !ready) return;
-    skin.drawBackground(ctx);
-
-    for (const block of blocks) if (block.alive) skin.drawBlock(ctx, block);
+    if (layerCtx) {
+      if (layerVersion !== blocksVersion) {
+        skin.drawBackground(layerCtx);
+        for (const block of blocks) if (block.alive) skin.drawBlock(layerCtx, block);
+        layerVersion = blocksVersion;
+      }
+      ctx.drawImage(blocksLayer, 0, 0);
+    } else {
+      skin.drawBackground(ctx);
+      for (const block of blocks) if (block.alive) skin.drawBlock(ctx, block);
+    }
     for (const exp of explosions)
       skin.drawExplosion(ctx, exp, Math.min(exp.elapsed / EXPLOSION_DURATION, 1));
 

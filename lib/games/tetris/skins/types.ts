@@ -32,4 +32,9 @@ export type TetrisSkin = {
   updateEffects: (dtMs: number) => void;
   drawEffects: (ctx: CanvasRenderingContext2D) => void;
   resetEffects: () => void;
+  /**
+   * ¿Hay animación en curso (efectos, destellos)? El motor salta los frames sin cambios; si falta,
+   * se asume que sí y se repinta siempre. Tras devolver false el motor repinta un frame más.
+   */
+  isAnimating?: () => boolean;
 };

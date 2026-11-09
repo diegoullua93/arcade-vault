@@ -29,6 +29,18 @@ function subscribe(listener: () => void) {
   };
 }
 
+// false durante la hidratación, true después. Durante la hidratación `useSkin` devuelve DEFAULT_SKIN
+// aunque haya otra guardada: quien cree algo costoso según la vista (el motor del juego) espera a
+// que esto sea true para no construir y descartar uno con la vista equivocada.
+const noopSubscribe = () => () => {};
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
 export function useSkin(): [SkinId, (skin: SkinId) => void] {
   const skin = useSyncExternalStore(subscribe, read, () => DEFAULT_SKIN);
   const setSkin = useCallback((next: SkinId) => {
