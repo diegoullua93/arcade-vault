@@ -19,7 +19,9 @@ El checklist trae dos bloques: cabeceras para Next.js y una salida de `get_advis
 - **`public.rls_auto_enable()`**: inspeccionar su definición con `execute_sql` (qué hace, si es la función de un event trigger, quién la usa) y revocar `EXECUTE` a `PUBLIC`, `anon` y `authenticated` en una migración nueva en `supabase/migrations/`, de modo que el cambio quede versionado. Cierra los avisos 0028 y 0029 de esta función.
 - **`public.is_username_available(p_username text)`**: se mantiene `SECURITY DEFINER` y ejecutable por `anon` y `authenticated` (decisión del SPEC 12: se usa antes del registro y en `/auth/username`). Se comprueba que fija `search_path = ''` (si no lo fija, la migración lo corrige con `alter function`) y que solo devuelve `boolean`. La excepción queda documentada en este spec y en `CLAUDE.md`.
 - **Verificación** de las cabeceras con la app en producción local (`npm run build` + `npm run start`) y de los avisos con `get_advisors` (security).
-- **Documentación** en `CLAUDE.md` (Next.js/seguridad y Database): cabeceras activas y los avisos que se aceptan a propósito.
+- **Página 404 propia** (`app/not-found.tsx`, ampliación pedida por el usuario el 2026-11-10): cualquier ruta inexistente muestra «404 · ESTA PÁGINA NO EXISTE» con `Nav`/`Footer` y botones al inicio y a la biblioteca, reutilizando las clases del tema (`av-hero`, `btn`). Devuelve estado 404, no redirige.
+- **Alias `/login`** → `/auth` (`redirects` en `next.config.ts`, temporal). Con sesión, `/auth` ya redirige según `proxy.ts`.
+- **Documentación** en `CLAUDE.md` (Next.js/seguridad y Database): cabeceras activas, la página 404, el alias y los avisos que se aceptan a propósito.
 
 **Out of scope (for future specs):**
 
@@ -65,7 +67,8 @@ Cada paso deja la app funcionando.
 3. **Revocar `EXECUTE` de `rls_auto_enable`.** Migración con `apply_migration` y copia en `supabase/migrations/`. Si la inspección muestra que revocar rompería su uso real, parar y registrarlo en el spec en vez de forzar el cambio. Verificar: `has_function_privilege('anon', 'public.rls_auto_enable()', 'execute')` es `false` para `anon`, `authenticated` y `public`.
 4. **Revisar `is_username_available`.** Con `pg_get_functiondef` confirmar `search_path = ''` y retorno `boolean`; si falta el `search_path`, aplicar la migración de `alter function`. Verificar que el registro y `/auth/username` siguen comprobando la disponibilidad del nombre.
 5. **Verificar avisos.** Ejecutar `get_advisors` (security). Deben quedar solo `anon_security_definer_function_executable` y `authenticated_security_definer_function_executable` de `is_username_available`, y `auth_leaked_password_protection`.
-6. **Documentación.** Actualizar `CLAUDE.md` (cabeceras de seguridad en Architecture notes; avisos aceptados en Database) y marcar este spec como `implemented`.
+6. **Página 404 y alias `/login`.** Leer la guía de `not-found` y `redirects` en `node_modules/next/dist/docs/`, crear `app/not-found.tsx` y añadir `redirects()` a `next.config.ts`. Verificar: una ruta inexistente devuelve 404 con la pantalla nueva y `/login` redirige a `/auth`.
+7. **Documentación.** Actualizar `CLAUDE.md` (cabeceras de seguridad en Architecture notes; avisos aceptados en Database) y marcar este spec como `implemented`.
 
 ## Acceptance criteria
 
@@ -76,7 +79,10 @@ Cada paso deja la app funcionando.
 - [ ] `public.is_username_available(text)` tiene `search_path = ''` y devuelve `boolean`; el registro rechaza un username ya existente y acepta uno libre.
 - [ ] `get_advisors` (security) ya no reporta ningún aviso sobre `rls_auto_enable`.
 - [ ] `get_advisors` (security) reporta como máximo estos avisos: los 2 de `is_username_available` (intencionales) y `auth_leaked_password_protection` (fuera de este spec).
-- [ ] `CLAUDE.md` documenta las 3 cabeceras y la excepción de `is_username_available`.
+- [ ] Una ruta inexistente (p. ej. `/no-existe`) responde con estado 404 y muestra «404», «ESTA PÁGINA NO EXISTE» y los botones VOLVER AL INICIO y VER BIBLIOTECA, con `Nav` y `Footer`, en escritorio y en 390×844.
+- [ ] VOLVER AL INICIO lleva a `/` y VER BIBLIOTECA a `/biblioteca`.
+- [ ] `/login` redirige a `/auth`, y con sesión termina en la misma pantalla que `/auth` con sesión (no en un 404).
+- [ ] `CLAUDE.md` documenta las 3 cabeceras, la página 404, el alias `/login` y la excepción de `is_username_available`.
 - [ ] `npm run lint` y `npm run build` pasan sin errores.
 
 ## Decisions taken and discarded
@@ -86,6 +92,7 @@ Cada paso deja la app funcionando.
 - **Mantener `is_username_available` como `SECURITY DEFINER` ejecutable por `anon`** (decisión del usuario). Es necesaria antes de tener sesión y el proyecto no usa `service_role`. Descartado restringirla a `authenticated` (el registro dejaría de validar el nombre antes de enviar) y moverla a un schema no expuesto (exige clave de servicio).
 - **Inspeccionar antes de revocar `rls_auto_enable`** (decisión del usuario): su origen no está versionado, así que no se asume qué hace. Se prefiere revocar a eliminarla para no perder el auto-enable de RLS en tablas nuevas.
 - **Dejar fuera la protección de contraseñas filtradas** (decisión del usuario): es un ajuste del panel (o una comprobación propia con HIBP) que se aborda aparte; el WARN queda abierto y registrado.
+- **404 propio en vez de redirigir todo al inicio** (ampliación del usuario): redirigir esconde el error, quita el estado 404 real y oculta enlaces rotos. Se añade además el alias `/login` → `/auth` por ser una URL que la gente intenta. Se mete en este spec por decisión del usuario, aunque no forma parte del checklist de seguridad.
 - **Revocar con migración versionada** y no desde el panel, para que el cambio quede en `supabase/migrations/`.
 
 ## Identified risks
@@ -100,7 +107,19 @@ Cada paso deja la app funcionando.
 
 ## Resultado de la inspección
 
-_(Se rellena en el paso 2 del plan: definición de `rls_auto_enable`, event trigger asociado y privilegios por rol.)_
+**`public.rls_auto_enable()`** (inspeccionada el 2026-11-10, paso 2):
+
+- Devuelve `event_trigger`, `SECURITY DEFINER`, dueño `postgres`, `search_path = pg_catalog`.
+- Es la función del event trigger `ensure_rls` (`ddl_command_end`, tags `CREATE TABLE`, `CREATE TABLE AS`, `SELECT INTO`, habilitado). Activa RLS en cada tabla nueva del schema `public`.
+- Privilegios actuales (`proacl`): `PUBLIC`, `postgres`, `anon`, `authenticated` y `service_role` tienen `EXECUTE`.
+- El linter la marca porque `anon` y `authenticated` tienen `EXECUTE` y la función está en un schema expuesto (`/rest/v1/rpc/rls_auto_enable`).
+- Conclusión: revocar `EXECUTE` a `PUBLIC`, `anon` y `authenticated` es seguro. Los event triggers los dispara el sistema con el rol que ejecuta el DDL y la función corre como `SECURITY DEFINER` (`postgres`); `service_role` y `postgres` conservan el privilegio.
+
+**`public.is_username_available(text)`** (dato adelantado para el paso 4):
+
+- Ya tiene `search_path = ''`, retorna `boolean`, es `STABLE SECURITY DEFINER` y usa nombres calificados (`public.profiles`, `public.scores`).
+- `EXECUTE`: `postgres`, `anon`, `authenticated` y `service_role`; `PUBLIC` no lo tiene.
+- Conclusión: no hace falta migración de `alter function`; el paso 4 queda en confirmar el comportamiento del registro.
 
 ## What is **not** in this spec
 
