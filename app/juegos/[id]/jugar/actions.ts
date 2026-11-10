@@ -9,26 +9,16 @@ import {
 } from "@/lib/leaderboard";
 import { createClient } from "@/lib/supabase/server";
 
-// Quita caracteres de control y recorta: el nombre llega de una sesión mock en el navegador.
-function cleanName(value: unknown): string {
-  return typeof value === "string"
-    ? value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim()
-    : "";
-}
-
-// No es una barrera de seguridad: quien use la API de Supabase directamente
-// se salta esta acción. Solo frenan los CHECK y las políticas RLS de la tabla.
+// El nombre y el dueño de la marca salen de la sesión del servidor (SPEC 12), nunca del cliente.
+// Esta acción no es la barrera de seguridad: lo son los CHECK y la RLS de `scores`
+// (insert solo con user_id = auth.uid() y player_name = username del perfil).
 export async function saveScore(input: SaveScoreInput): Promise<SaveScoreResult> {
   const gameId = input?.gameId;
-  const playerName = cleanName(input?.playerName);
   const score = input?.score;
 
   if (
     typeof gameId !== "string" ||
     !PLAYABLE_GAME_IDS.includes(gameId) ||
-    !playerName ||
-    // Cuenta puntos de código, igual que char_length() en la base de datos.
-    [...playerName].length > SCORE_LIMITS.name ||
     typeof score !== "number" ||
     !Number.isInteger(score) ||
     score < 1 ||
@@ -40,9 +30,24 @@ export async function saveScore(input: SaveScoreInput): Promise<SaveScoreResult>
   try {
     const supabase = await createClient();
 
-    const { error: insertError } = await supabase
-      .from("scores")
-      .insert({ game_id: gameId, player_name: playerName, score });
+    // getUser valida el token con Supabase Auth (las cookies por sí solas no son de fiar).
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) return { ok: false, error: "unauthenticated" };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", userData.user.id)
+      .maybeSingle();
+    // Sesión sin perfil: aún no eligió nombre, así que no puede guardar.
+    if (!profile) return { ok: false, error: "unauthenticated" };
+
+    const { error: insertError } = await supabase.from("scores").insert({
+      game_id: gameId,
+      player_name: profile.username,
+      score,
+      user_id: userData.user.id,
+    });
     if (insertError) {
       console.error("[puntuación] No se pudo insertar:", insertError.message);
       return { ok: false, error: "save_failed" };
@@ -50,7 +55,7 @@ export async function saveScore(input: SaveScoreInput): Promise<SaveScoreResult>
 
     const { data, error: rankError } = await supabase.rpc("get_player_best", {
       p_game_id: gameId,
-      p_player_name: playerName,
+      p_player_name: profile.username,
     });
     if (rankError || !data || data.length === 0) {
       console.error("[puntuación] No se pudo leer el rango:", rankError?.message);

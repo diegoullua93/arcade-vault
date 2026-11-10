@@ -143,11 +143,17 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
   }, []);
 
   const submit = useCallback(
-    (score: number, playerName: string) => {
+    (score: number) => {
       const run = ++runRef.current;
       setSave({ kind: "saving" });
-      saveScore({ gameId, playerName, score })
-        .then((r): SaveState => (r.ok ? { kind: "saved", rank: r.rank } : { kind: "error" }))
+      saveScore({ gameId, score })
+        .then((r): SaveState =>
+          r.ok
+            ? { kind: "saved", rank: r.rank }
+            : r.error === "unauthenticated"
+              ? { kind: "guest" }
+              : { kind: "error" },
+        )
         .catch((): SaveState => ({ kind: "error" }))
         .then((next) => {
           if (runRef.current === run) setSave(next);
@@ -186,7 +192,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
               setSave({ kind: "guest" });
               return;
             }
-            submit(next.score, name);
+            submit(next.score);
           } else if (next.status !== "paused") {
             // Partida nueva (restart): rearma y descarta cualquier guardado en vuelo.
             armedRef.current = true;
@@ -269,7 +275,7 @@ export function GameScreen({ gameId, title }: { gameId: string; title: string })
       setSave({ kind: "guest" });
       return;
     }
-    submit(scoreRef.current, name);
+    submit(scoreRef.current);
   };
 
   return (
