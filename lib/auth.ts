@@ -48,3 +48,22 @@ export function safeNext(next: string | null | undefined, fallback = "/bibliotec
   }
   return next;
 }
+
+// Resultados de las Server Actions de app/auth/actions.ts.
+export type AuthError =
+  | "invalid" // datos que no pasan la validación (ver `field`)
+  | "username_taken"
+  | "credentials" // correo o contraseña incorrectos (mensaje genérico)
+  | "not_confirmed" // correo sin confirmar
+  | "no_session" // la acción exige sesión y no la hay
+  | "failed"; // error inesperado o límite de Supabase
+
+export type AuthResult =
+  | { ok: true }
+  | { ok: false; error: AuthError; field?: AuthField };
+
+export type OAuthResult = { ok: true; url: string } | { ok: false; error: "failed" };
+
+export type SignUpInput = { username: string; email: string; password: string; next?: string };
+export type SignInInput = { email: string; password: string };
+export type UsernameInput = { username: string };
