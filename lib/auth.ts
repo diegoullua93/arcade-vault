@@ -64,6 +64,28 @@ export type AuthResult =
 
 export type OAuthResult = { ok: true; url: string } | { ok: false; error: "failed" };
 
+// Texto de error para la UI (dice qué pasó y cómo arreglarlo).
+export function authErrorMessage(error: AuthError, field?: AuthField): string {
+  switch (error) {
+    case "username_taken":
+      return "Ese nombre ya está en uso. Elige otro.";
+    case "credentials":
+      return "Correo o contraseña incorrectos.";
+    case "not_confirmed":
+      return "Tu correo aún no está confirmado. Abre el enlace que te enviamos.";
+    case "no_session":
+      return "El enlace caducó. Pide uno nuevo.";
+    case "invalid":
+      return field === "username"
+        ? validateUsername("") ?? "Nombre no válido"
+        : field === "password"
+          ? validatePassword("") ?? "Contraseña no válida"
+          : "Correo electrónico no válido";
+    default:
+      return "No se pudo completar la acción. Inténtalo de nuevo en unos minutos.";
+  }
+}
+
 export type SignUpInput = { username: string; email: string; password: string; next?: string };
 export type SignInInput = { email: string; password: string };
 export type UsernameInput = { username: string };
