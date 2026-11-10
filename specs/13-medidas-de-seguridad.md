@@ -1,6 +1,6 @@
 # SPEC 13 — Medidas de seguridad básicas (cabeceras HTTP y avisos del linter de Supabase)
 
-> **Status:** approved
+> **Status:** implemented
 > **Depends on:** SPEC 04, SPEC 12
 > **Date:** 2026-11-10
 > **Objective:** Aplicar el checklist de `references/security/security-checklist.md`: añadir las 3 cabeceras de seguridad a Next.js y resolver (o documentar como intencionales) los avisos de seguridad del linter de Supabase, salvo la protección de contraseñas filtradas.
