@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "@/components/session-provider";
 import { useState, useTransition, type FormEvent } from "react";
 import { createProfile } from "@/app/auth/actions";
 import { AuthCard } from "@/components/auth/auth-card";
@@ -9,6 +10,7 @@ import { AUTH_LIMITS, authErrorMessage, safeNext, validateUsername } from "@/lib
 
 export function UsernameForm({ next }: { next?: string }) {
   const router = useRouter();
+  const { refresh } = useSession();
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -26,6 +28,7 @@ export function UsernameForm({ next }: { next?: string }) {
       const result = await createProfile({ username });
       if (result.ok) {
         router.push(safeNext(next));
+        refresh();
         router.refresh();
       } else {
         setError(authErrorMessage(result.error, result.field));

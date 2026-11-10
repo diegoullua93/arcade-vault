@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useSession } from "@/components/session-provider";
 import { useState, useTransition } from "react";
 import { signOut } from "@/app/auth/actions";
 
 export function SignOutButton() {
   const router = useRouter();
+  const { refresh } = useSession();
   const [failed, setFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -15,6 +17,7 @@ export function SignOutButton() {
       const result = await signOut();
       if (result.ok) {
         router.push("/");
+        refresh();
         router.refresh();
       } else {
         setFailed(true);

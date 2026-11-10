@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/components/session-provider";
 import { useState, useTransition, type FormEvent } from "react";
 import { updatePassword } from "@/app/auth/actions";
 import { AuthCard, AuthTerminal } from "@/components/auth/auth-card";
@@ -10,6 +11,7 @@ import { AUTH_LIMITS, authErrorMessage, validatePassword } from "@/lib/auth";
 
 export function ResetForm() {
   const router = useRouter();
+  const { refresh } = useSession();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [errors, setErrors] = useState<{ password?: string; confirm?: string }>({});
@@ -33,6 +35,7 @@ export function ResetForm() {
       const result = await updatePassword({ password });
       if (result.ok) {
         setDone(true);
+        refresh();
         router.refresh();
       } else {
         setFormError({

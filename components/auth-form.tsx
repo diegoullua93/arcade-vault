@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/components/session-provider";
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { signIn, signInWithGoogle, signUp } from "@/app/auth/actions";
 import { AuthCard, AuthTerminal } from "@/components/auth/auth-card";
@@ -23,6 +24,7 @@ const CALLBACK_ERROR = "El enlace no es válido o ya caducó. Inicia sesión o p
 
 export function AuthForm({ next, callbackError }: { next?: string; callbackError?: boolean }) {
   const router = useRouter();
+  const { refresh } = useSession();
   const target = safeNext(next);
   const [tab, setTab] = useState<Tab>("in");
   const [username, setUsername] = useState("");
@@ -74,6 +76,7 @@ export function AuthForm({ next, callbackError }: { next?: string; callbackError
         const result = await signIn({ email, password });
         if (result.ok) {
           router.push(target);
+          refresh();
           router.refresh();
         } else {
           setFormError(authErrorMessage(result.error, result.field));

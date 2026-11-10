@@ -1,80 +1,85 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
-  useSyncExternalStore,
+  useState,
   type ReactNode,
 } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 export type SessionUser = { name: string };
 
 type SessionContextValue = {
+  // null para invitados, en el servidor y mientras se hidrata o carga el perfil.
   user: SessionUser | null;
-  login: (user: SessionUser | null) => void;
-  signOut: () => void;
+  signOut: () => Promise<void>;
+  // Vuelve a leer la sesión. Los formularios lo llaman tras iniciar sesión o crear el perfil,
+  // porque ahí las cookies las escribe una Server Action y el navegador no recibe ningún evento.
+  refresh: () => void;
 };
-
-const STORAGE_KEY = "av_user";
-const listeners = new Set<() => void>();
-
-// Copia en memoria: respaldo si localStorage está bloqueado (modo privado).
-let memoryValue: string | null = null;
-
-function readRaw(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return memoryValue;
-  }
-}
-
-function writeRaw(value: string | null) {
-  memoryValue = value;
-  try {
-    if (value === null) localStorage.removeItem(STORAGE_KEY);
-    else localStorage.setItem(STORAGE_KEY, value);
-  } catch {}
-  listeners.forEach((l) => l());
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  window.addEventListener("storage", listener);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", listener);
-  };
-}
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
+type Profile = { id: string; name: string };
+
 export function SessionProvider({ children }: { children: ReactNode }) {
-  // El servidor y la hidratación ven null (invitado); el valor real llega tras montar.
-  const raw = useSyncExternalStore(subscribe, readRaw, () => null);
+  const router = useRouter();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
-  const user = useMemo<SessionUser | null>(() => {
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw);
-      return typeof parsed?.name === "string" ? { name: parsed.name } : null;
-    } catch {
-      return null;
-    }
-  }, [raw]);
-
-  const login = useCallback((u: SessionUser | null) => {
-    writeRaw(u ? JSON.stringify(u) : null);
+  // Sesión de Supabase (cookies). INITIAL_SESSION, SIGNED_IN, SIGNED_OUT y TOKEN_REFRESHED
+  // llegan por aquí; el id solo cambia si cambia el usuario.
+  useEffect(() => {
+    const supabase = createClient();
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user.id ?? null);
+    });
+    return () => data.subscription.unsubscribe();
   }, []);
-  const signOut = useCallback(() => writeRaw(null), []);
 
-  const value = useMemo(() => ({ user, login, signOut }), [user, login, signOut]);
+  // Username público del usuario (profiles). Se lee aparte: no se debe llamar a Supabase
+  // dentro del callback de onAuthStateChange.
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    createClient()
+      .from("profiles")
+      .select("username")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setProfile(data ? { id: userId, name: data.username } : null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
-  return (
-    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
+  const user = useMemo<SessionUser | null>(
+    () => (userId && profile?.id === userId ? { name: profile.name } : null),
+    [userId, profile],
   );
+
+  const refresh = useCallback(() => {
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => setUserId(data.session?.user.id ?? null));
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await createClient().auth.signOut();
+    setUserId(null);
+    router.refresh();
+  }, [router]);
+
+  const value = useMemo(() => ({ user, signOut, refresh }), [user, signOut, refresh]);
+
+  return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
 
 export function useSession(): SessionContextValue {
