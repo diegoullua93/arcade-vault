@@ -31,6 +31,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  // Se incrementa en refresh() para volver a leer el perfil aunque el usuario no cambie
+  // (p. ej. recién creado en /auth/username).
+  const [version, setVersion] = useState(0);
 
   // Sesión de Supabase (cookies). INITIAL_SESSION, SIGNED_IN, SIGNED_OUT y TOKEN_REFRESHED
   // llegan por aquí; el id solo cambia si cambia el usuario.
@@ -58,7 +61,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, version]);
 
   const user = useMemo<SessionUser | null>(
     () => (userId && profile?.id === userId ? { name: profile.name } : null),
@@ -66,6 +69,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const refresh = useCallback(() => {
+    setVersion((v) => v + 1);
     createClient()
       .auth.getSession()
       .then(({ data }) => setUserId(data.session?.user.id ?? null));

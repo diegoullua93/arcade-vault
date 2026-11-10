@@ -18,7 +18,6 @@ export function SignOutButton() {
       if (result.ok) {
         router.push("/");
         refresh();
-        router.refresh();
       } else {
         setFailed(true);
       }

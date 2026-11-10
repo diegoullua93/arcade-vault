@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession } from "@/components/session-provider";
 import { useState, useTransition, type FormEvent } from "react";
 import { updatePassword } from "@/app/auth/actions";
@@ -10,7 +9,6 @@ import { Field } from "@/components/auth/field";
 import { AUTH_LIMITS, authErrorMessage, validatePassword } from "@/lib/auth";
 
 export function ResetForm() {
-  const router = useRouter();
   const { refresh } = useSession();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -36,7 +34,6 @@ export function ResetForm() {
       if (result.ok) {
         setDone(true);
         refresh();
-        router.refresh();
       } else {
         setFormError({
           text: authErrorMessage(result.error, result.field),

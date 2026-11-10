@@ -29,7 +29,6 @@ export function UsernameForm({ next }: { next?: string }) {
       if (result.ok) {
         router.push(safeNext(next));
         refresh();
-        router.refresh();
       } else {
         setError(authErrorMessage(result.error, result.field));
       }

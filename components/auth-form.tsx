@@ -77,7 +77,6 @@ export function AuthForm({ next, callbackError }: { next?: string; callbackError
         if (result.ok) {
           router.push(target);
           refresh();
-          router.refresh();
         } else {
           setFormError(authErrorMessage(result.error, result.field));
           setShake(true);
