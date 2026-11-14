@@ -21,6 +21,7 @@ export type Database = {
           cover: string
           id: string
           long: string
+          playable: boolean
           short: string
           sort_order: number
           title: string
@@ -31,6 +32,7 @@ export type Database = {
           cover: string
           id: string
           long: string
+          playable?: boolean
           short: string
           sort_order: number
           title: string
@@ -41,6 +43,7 @@ export type Database = {
           cover?: string
           id?: string
           long?: string
+          playable?: boolean
           short?: string
           sort_order?: number
           title?: string

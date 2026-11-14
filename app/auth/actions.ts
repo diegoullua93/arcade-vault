@@ -13,6 +13,7 @@ import {
   type SignUpInput,
   type UsernameInput,
 } from "@/lib/auth";
+import { configuredSiteUrl, isSiteUrlRequired } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 // Quita caracteres de control y recorta (los campos vienen de un formulario del navegador).
@@ -20,13 +21,16 @@ function clean(value: unknown): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f]+/g, " ").trim() : "";
 }
 
-// Origen del sitio para los enlaces de los correos y el retorno de OAuth.
-// Sale de la petición: no hay una variable de entorno de URL.
+// Origen del sitio para los enlaces de los correos y el retorno de OAuth. Sale de SITE_URL; solo en
+// desarrollo, sin ella, del Host de la petición. En producción sin SITE_URL lanza (las acciones lo
+// capturan, lo registran y responden `failed`).
 async function getOrigin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? (host?.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
+  const fixed = configuredSiteUrl();
+  if (fixed) return fixed;
+  if (isSiteUrlRequired()) throw new Error("SITE_URL no está definida o no es una URL válida");
+  const host = (await headers()).get("host");
+  if (!host) throw new Error("Falta la cabecera Host");
+  return `http://${host}`;
 }
 
 async function callbackUrl(next?: string): Promise<string> {

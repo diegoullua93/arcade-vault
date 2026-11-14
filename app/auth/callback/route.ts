@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeNext } from "@/lib/auth";
+import { configuredSiteUrl, isSiteUrlRequired } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 // Destino de los enlaces de Supabase: confirmación de correo, recuperación de contraseña y Google.
@@ -9,14 +10,21 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code");
   const next = safeNext(searchParams.get("next"));
 
-  // Detrás de un proxy inverso el origen real llega en x-forwarded-host.
-  const forwardedHost = request.headers.get("x-forwarded-host");
-  const base = forwardedHost
-    ? `${request.headers.get("x-forwarded-proto") ?? "https"}://${forwardedHost}`
-    : origin;
+  // El destino sale de SITE_URL, no de cabeceras de la petición. Solo en desarrollo, sin ella, se usa
+  // el origen de la petición. En producción sin SITE_URL se responde con una ruta relativa: ninguna
+  // redirección absoluta puede apuntar a un Host ajeno.
+  const fixed = configuredSiteUrl();
+  const base = fixed ?? (isSiteUrlRequired() ? null : origin);
 
-  const fail = () => NextResponse.redirect(new URL("/auth?error=callback", base));
+  const fail = () =>
+    base
+      ? NextResponse.redirect(new URL("/auth?error=callback", base))
+      : new NextResponse(null, { status: 307, headers: { Location: "/auth?error=callback" } });
 
+  if (!base) {
+    console.error("[auth] callback: SITE_URL no está definida o no es una URL válida");
+    return fail();
+  }
   if (!code) return fail();
 
   try {

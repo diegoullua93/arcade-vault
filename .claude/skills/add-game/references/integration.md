@@ -15,18 +15,21 @@ HUD: `GameScreen` pinta Jugador, Puntuación, Vidas (corazones) y Nivel (2 dígi
 
 ## 3. Catálogo (`games`)
 
-- Los 7 juegos no jugables (`caida`, ... ver la migración `*_create_games.sql`) **ya tienen fila**: no se inserta nada; solo se activa el motor.
-- Un id nuevo necesita fila: migración `supabase/migrations/<timestamp>_add_game_<id>.sql` aplicada con `apply_migration`:
+- **Activar un juego exige `games.playable = true`** (SPEC 14): la política `scores_insert_own` rechaza marcas de juegos con `playable = false`, aunque el id esté en `PLAYABLE_GAME_IDS`. Los 4 jugables actuales (`asteroids`, `tetris`, `arkanoid`, `serpentina`) ya lo tienen. Mantén `playable` y `PLAYABLE_GAME_IDS` sincronizados.
+- Los juegos no jugables que ya tienen fila (`gloton`, `invasores`, `ranaria`, `duelo-pixel`) solo necesitan una migración `supabase/migrations/<timestamp>_activate_<id>.sql`: `update public.games set playable = true where id = '<id>';`.
+- Un id nuevo necesita fila: migración `supabase/migrations/<timestamp>_add_game_<id>.sql` aplicada con `apply_migration`, que ya lo marca como jugable:
 
 ```sql
-insert into public.games (id, title, short, long, category, cover, color, sort_order)
+insert into public.games (id, title, short, long, category, cover, color, sort_order, playable)
 values ('<id>', '<TÍTULO>', '<corto>', '<largo>', 'ARCADE', 'cover-<id>', 'cyan',
-        (select coalesce(max(sort_order), 0) + 1 from public.games));
+        (select coalesce(max(sort_order), 0) + 1 from public.games), true);
 ```
+
+Aplícala también en producción (ver `docs/produccion.md`) y regenera `supabase/prod/01-schema.sql` con `bash supabase/prod/build-schema.sh` solo si aún no se ha hecho el despliegue inicial.
 
   y la clase `cover-<id>` en `app/globals.css`. El catálogo está cacheado (`use cache`, `cacheTag("games")`): tras insertar hay que invalidar o redesplegar. El home muestra 6 juegos y `/biblioteca` todos.
 - El texto `long` del catálogo debe corresponder a las reglas reales del juego (en SPEC 05 se dejó una discrepancia sobre OVNIs); anótalo en el spec.
-- No hace falta migración de esquema ni regenerar `lib/supabase/database.types.ts` salvo que cambie el esquema.
+- No hace falta regenerar `lib/supabase/database.types.ts` salvo que cambie el esquema (el cambio de datos de `playable` no lo cambia).
 
 ## 4. Leaderboard y guardado
 

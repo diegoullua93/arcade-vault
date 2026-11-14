@@ -40,13 +40,18 @@ export function validatePassword(value: string): string | null {
   return null;
 }
 
-// Evita open redirect: solo rutas relativas del propio sitio ("/perfil", no "//evil.com"
-// ni "https://…" ni "/\evil.com").
+// Evita open redirect: solo rutas relativas del propio sitio ("/perfil", no "//evil.com",
+// "https://…", "/\evil.com" ni "/<TAB>/evil.com"). Se valida resolviendo la URL como lo haría el
+// navegador, no con una lista de caracteres: si el origen resultante cambia, se rechaza.
 export function safeNext(next: string | null | undefined, fallback = "/biblioteca"): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) {
+  if (!next || !next.startsWith("/") || /[\u0000-\u001f\u007f\\]/.test(next)) return fallback;
+  try {
+    const url = new URL(next, "http://x");
+    if (url.origin !== "http://x") return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
     return fallback;
   }
-  return next;
 }
 
 // Resultados de las Server Actions de app/auth/actions.ts.
