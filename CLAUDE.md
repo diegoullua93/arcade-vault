@@ -16,6 +16,8 @@ Usa siempre /frontend-design para diseñar la interfaz de usuario
 - `/frontend-design` (de `anthropics/skills`, en `.agents/skills/`, enlazado desde `.claude/skills/`).
 - `/add-game <id> [fuente]` (propia, `.claude/skills/add-game/`): para añadir un juego (portado desde `references/` o nuevo) con su leaderboard. Genera el spec en `specs/`, que luego se implementa con `/spec-impl`. Sus `references/` documentan el contrato del motor (`engine-contract.md`) y los puntos de integración (`integration.md`).
 
+- Agente `game-planner` (propio, `.claude/agents/game-planner.md`): decide qué juego encaja como el siguiente según los lineamientos de la plataforma y termina recomendando `/add-game <id>`. Su memoria es `game-suggestions-todo.md` (raíz), donde registra las sugerencias pendientes, aceptadas, descartadas e implementadas. Solo escribe en ese archivo.
+
 Versiones fijadas en `skills-lock.json` (instalación: `npx skills@latest add <repo>`).
 
 ## Tooling
