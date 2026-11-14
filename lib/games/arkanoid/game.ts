@@ -1,4 +1,4 @@
-import type { GameCallbacks, GameHud, GameInstance } from "../types";
+import type { GameCallbacks, GameHud, GameInstance, GameOptions } from "../types";
 import {
   BALL_SIZE,
   BASE_BALL_VX,
@@ -8,7 +8,6 @@ import {
   BLOCK_H,
   BLOCK_W,
   EXPLOSION_DURATION,
-  EXPLOSION_FRAMES,
   H,
   INITIAL_LIVES,
   PADDLE_BOUNCE_MARGIN,
@@ -17,18 +16,11 @@ import {
   PADDLE_W,
   PADDLE_Y,
   POINTS_PER_BLOCK,
-  SPRITESHEET_URL,
   W,
 } from "./constants";
-import {
-  drawFrame,
-  drawSprite,
-  type Ball,
-  type Block,
-  type Explosion,
-  type Paddle,
-} from "./entities";
+import type { Ball, Block, Explosion, Paddle } from "./entities";
 import { LEVELS } from "./levels";
+import { getSkin } from "./skins";
 import { collideAABB } from "./utils";
 
 type State = "playing" | "gameover";
@@ -36,11 +28,15 @@ type State = "playing" | "gameover";
 export function createArkanoidGame(
   canvas: HTMLCanvasElement,
   callbacks: GameCallbacks,
+  options: GameOptions = {},
 ): GameInstance {
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     return { pause() {}, resume() {}, restart() {}, destroy() {} };
   }
+
+  // Capa de dibujo: la simulación de abajo no depende del skin
+  const skin = getSkin(options.skin);
 
   // ── Estado del juego ────────────────────────────────────────────────────────
   const paddle: Paddle = { x: 0, y: PADDLE_Y, w: PADDLE_W, h: PADDLE_H };
@@ -56,30 +52,35 @@ export function createArkanoidGame(
 
   let paused = false;
   let destroyed = false;
-  let sprites: HTMLImageElement | null = null;
+  let ready = false; // el skin ya tiene sus assets cargados
   let lastTime: number | null = null;
   let rafId = 0;
   let lastHud: GameHud | null = null;
 
   function emitHud() {
-    const hud: GameHud = {
-      score,
-      lives,
-      level: currentLevel,
-      status: paused ? "paused" : state,
-    };
+    const status = paused ? "paused" : state;
     if (
       lastHud &&
-      lastHud.score === hud.score &&
-      lastHud.lives === hud.lives &&
-      lastHud.level === hud.level &&
-      lastHud.status === hud.status
+      lastHud.score === score &&
+      lastHud.lives === lives &&
+      lastHud.level === currentLevel &&
+      lastHud.status === status
     ) {
       return;
     }
-    lastHud = hud;
-    callbacks.onHudChange(hud);
+    lastHud = { score, lives, level: currentLevel, status };
+    callbacks.onHudChange(lastHud);
   }
+
+  // Capa estática: fondo + bloques vivos en un canvas fuera de pantalla. Solo cambia al romper un
+  // bloque o cargar un nivel (`blocksVersion`); cada frame la copia en vez de repintar cada bloque
+  // (mismas operaciones y orden que antes, así que el resultado es el mismo).
+  const blocksLayer = document.createElement("canvas");
+  blocksLayer.width = W;
+  blocksLayer.height = H;
+  const layerCtx = blocksLayer.getContext("2d");
+  let blocksVersion = 0;
+  let layerVersion = -1;
 
   // ── Lógica ──────────────────────────────────────────────────────────────────
   function initPaddle() {
@@ -105,6 +106,7 @@ export function createArkanoidGame(
       alive: true,
     }));
     explosions = [];
+    blocksVersion++;
     initBall();
   }
 
@@ -115,6 +117,7 @@ export function createArkanoidGame(
     won = false;
     initPaddle();
     loadLevel(1);
+    skin.resetEffects();
   }
 
   // ── Input ───────────────────────────────────────────────────────────────────
@@ -193,6 +196,7 @@ export function createArkanoidGame(
       if (!block.alive) continue;
       if (collideAABB(ball, block)) {
         block.alive = false;
+        blocksVersion++;
         explosions.push({
           x: block.x,
           y: block.y,
@@ -202,6 +206,7 @@ export function createArkanoidGame(
           elapsed: 0,
         });
         score += POINTS_PER_BLOCK;
+        skin.onBlockHit(block, POINTS_PER_BLOCK);
         ball.vy = -ball.vy;
         if (blocks.every((b) => !b.alive)) {
           if (currentLevel < LEVELS.length) loadLevel(currentLevel + 1);
@@ -215,8 +220,14 @@ export function createArkanoidGame(
     }
 
     // Explosiones
-    for (const exp of explosions) exp.elapsed += dt * 1000;
-    explosions = explosions.filter((exp) => exp.elapsed < EXPLOSION_DURATION);
+    // Avanza y descarta las explosiones terminadas en el sitio (sin crear un array por frame)
+    let kept = 0;
+    for (let i = 0; i < explosions.length; i++) {
+      const exp = explosions[i];
+      exp.elapsed += dt * 1000;
+      if (exp.elapsed < EXPLOSION_DURATION) explosions[kept++] = exp;
+    }
+    explosions.length = kept;
 
     // Pelota perdida
     if (ball.y > H) {
@@ -232,48 +243,32 @@ export function createArkanoidGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
-  function drawOverlay(title: string, titleSize: number, sub: string[]) {
-    if (!ctx) return;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#fff";
-    ctx.font = `bold ${titleSize}px monospace`;
-    ctx.fillText(title, W / 2, H / 2 - 24);
-    ctx.font = "bold 18px monospace";
-    ctx.fillStyle = "rgba(255,255,255,0.65)";
-    sub.forEach((line, i) => ctx.fillText(line, W / 2, H / 2 + 24 + i * 28));
-  }
-
   function draw() {
-    if (!ctx || !sprites) return;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, W, H);
-
-    for (const block of blocks)
-      if (block.alive)
-        drawSprite(ctx, sprites, `block_${block.color}`, block.x, block.y, block.w, block.h);
-
-    for (const exp of explosions) {
-      const frameIndex = Math.min(Math.floor((exp.elapsed / EXPLOSION_DURATION) * 4), 3);
-      drawFrame(ctx, sprites, EXPLOSION_FRAMES[exp.color][frameIndex], exp.x, exp.y, exp.w, exp.h);
+    if (!ctx || !ready) return;
+    if (layerCtx) {
+      if (layerVersion !== blocksVersion) {
+        skin.drawBackground(layerCtx);
+        for (const block of blocks) if (block.alive) skin.drawBlock(layerCtx, block);
+        layerVersion = blocksVersion;
+      }
+      ctx.drawImage(blocksLayer, 0, 0);
+    } else {
+      skin.drawBackground(ctx);
+      for (const block of blocks) if (block.alive) skin.drawBlock(ctx, block);
     }
+    for (const exp of explosions)
+      skin.drawExplosion(ctx, exp, Math.min(exp.elapsed / EXPLOSION_DURATION, 1));
 
-    drawSprite(ctx, sprites, "paddle", paddle.x, paddle.y, paddle.w, paddle.h);
-    drawSprite(ctx, sprites, "ball", ball.x, ball.y, ball.w, ball.h);
+    skin.drawPaddle(ctx, paddle);
+    skin.drawBall(ctx, ball);
+    skin.drawEffects(ctx);
 
     if (state === "gameover") {
-      ctx.fillStyle = "rgba(0,0,0,0.6)";
-      ctx.fillRect(0, 0, W, H);
       const sub = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
-      if (won) drawOverlay("¡COMPLETASTE EL JUEGO!", 48, sub);
-      else drawOverlay("GAME OVER", 64, sub);
+      skin.drawOverlay(ctx, won ? "¡COMPLETASTE EL JUEGO!" : "GAME OVER", sub);
     }
 
-    if (paused) {
-      ctx.fillStyle = "rgba(0,0,0,0.65)";
-      ctx.fillRect(0, 0, W, H);
-      drawOverlay("PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
-    }
+    if (paused) skin.drawOverlay(ctx, "PAUSA", ["P / ESC PARA CONTINUAR"]);
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────
@@ -281,6 +276,7 @@ export function createArkanoidGame(
     const dt = lastTime === null ? 0 : Math.min(ts - lastTime, 50) / 1000;
     lastTime = ts;
     update(dt);
+    skin.updateEffects(dt * 1000);
     draw();
     emitHud();
     rafId = requestAnimationFrame(loop);
@@ -312,7 +308,7 @@ export function createArkanoidGame(
     initGame();
     paused = false;
     emitHud();
-    if (sprites) startLoop();
+    if (ready) startLoop();
   }
 
   const onBlur = () => {
@@ -324,7 +320,8 @@ export function createArkanoidGame(
     if (document.hidden) pause();
   };
 
-  // ── Arranque: el loop empieza cuando el spritesheet está cargado ────────────
+  // ── Arranque: el loop empieza cuando el skin tiene sus assets (el clásico carga
+  // el spritesheet; neón y mario están listos al instante) ─────────────────────
   initGame();
   emitHud();
   window.addEventListener("keydown", onKeyDown);
@@ -333,14 +330,12 @@ export function createArkanoidGame(
   document.addEventListener("visibilitychange", onVisibilityChange);
   canvas.addEventListener("mousemove", onMouseMove);
 
-  const img = new Image();
-  img.onload = () => {
+  const abortLoad = skin.load(() => {
     if (destroyed) return;
-    sprites = img;
-    startLoop();
-  };
-  img.onerror = () => console.error("No se pudo cargar el spritesheet de Arkanoid");
-  img.src = SPRITESHEET_URL;
+    ready = true;
+    if (paused) draw();
+    else startLoop();
+  });
 
   return {
     pause,
@@ -348,8 +343,7 @@ export function createArkanoidGame(
     restart,
     destroy() {
       destroyed = true;
-      img.onload = null;
-      img.onerror = null;
+      abortLoad();
       cancelAnimationFrame(rafId);
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);

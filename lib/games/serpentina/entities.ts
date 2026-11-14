@@ -88,9 +88,16 @@ function drawHead(ctx: CanvasRenderingContext2D, cell: Cell, dir: Direction) {
 }
 
 // snake[0] es la cabeza; se dibuja de la cola a la cabeza para que la cabeza quede encima
-export function drawSnake(ctx: CanvasRenderingContext2D, snake: Cell[], dir: Direction) {
-  for (let i = snake.length - 1; i >= 1; i--) drawBodySegment(ctx, snake[i], i);
-  drawHead(ctx, snake[0], dir);
+// `visible` (opcional) permite saltar las celdas que quedan fuera de la zona que se repinta
+export function drawSnake(
+  ctx: CanvasRenderingContext2D,
+  snake: Cell[],
+  dir: Direction,
+  visible?: (cell: Cell) => boolean,
+) {
+  for (let i = snake.length - 1; i >= 1; i--)
+    if (!visible || visible(snake[i])) drawBodySegment(ctx, snake[i], i);
+  if (!visible || visible(snake[0])) drawHead(ctx, snake[0], dir);
 }
 
 // La moneda gira: su ancho oscila con el tiempo del motor (ms)

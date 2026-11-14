@@ -70,24 +70,26 @@ export function createSerpentinaGame(
   let rafId = 0;
   let lastHud: GameHud | null = null;
 
+  // Repintado parcial: la serpiente solo cambia en cada paso; entre pasos solo animan la moneda
+  // y los destellos. `fullRedraw` repinta todo; si no, solo las zonas animadas (rectángulos
+  // planos [x, y, w, h, ...] reutilizados para no asignar memoria por frame).
+  let fullRedraw = true;
+  let dirtyCur: number[] = [];
+  let dirtyPrev: number[] = [];
+
   function emitHud() {
-    const hud: GameHud = {
-      score,
-      lives: 0,
-      level: levelFor(eaten),
-      status: paused ? "paused" : state,
-    };
+    const status = paused ? "paused" : state;
+    const level = levelFor(eaten);
     if (
       lastHud &&
-      lastHud.score === hud.score &&
-      lastHud.lives === hud.lives &&
-      lastHud.level === hud.level &&
-      lastHud.status === hud.status
+      lastHud.score === score &&
+      lastHud.level === level &&
+      lastHud.status === status
     ) {
       return;
     }
-    lastHud = hud;
-    callbacks.onHudChange(hud);
+    lastHud = { score, lives: 0, level, status };
+    callbacks.onHudChange(lastHud);
   }
 
   // ── Lógica ──────────────────────────────────────────────────────────────────
@@ -104,6 +106,7 @@ export function createSerpentinaGame(
     acc = 0;
     effects = [];
     food = randomFreeCell(snake, Math.random);
+    fullRedraw = true;
   }
 
   function step() {
@@ -114,12 +117,15 @@ export function createSerpentinaGame(
     const eating = food !== null && head.x === food.x && head.y === food.y;
 
     // Si no come, la cola se libera en este mismo paso y no cuenta como colisión
-    const body = eating ? snake : snake.slice(0, -1);
-    if (body.some((c) => c.x === head.x && c.y === head.y)) {
-      state = "gameover";
-      return;
+    const bodyLength = eating ? snake.length : snake.length - 1;
+    for (let i = 0; i < bodyLength; i++) {
+      if (snake[i].x === head.x && snake[i].y === head.y) {
+        state = "gameover";
+        return;
+      }
     }
 
+    fullRedraw = true; // la serpiente cambia (y quizá la moneda): se repinta todo
     snake.unshift(head);
     if (!eating) {
       snake.pop();
@@ -167,8 +173,14 @@ export function createSerpentinaGame(
   // ── Update ──────────────────────────────────────────────────────────────────
   function update(dtMs: number) {
     time += dtMs;
-    for (const effect of effects) effect.elapsed += dtMs;
-    effects = effects.filter((effect) => effect.elapsed < EAT_TEXT_MS);
+    // Avanza y descarta los efectos terminados en el sitio (sin crear un array por frame)
+    let kept = 0;
+    for (let i = 0; i < effects.length; i++) {
+      const effect = effects[i];
+      effect.elapsed += dtMs;
+      if (effect.elapsed < EAT_TEXT_MS) effects[kept++] = effect;
+    }
+    effects.length = kept;
 
     if (state !== "playing") return;
 
@@ -182,20 +194,90 @@ export function createSerpentinaGame(
   }
 
   // ── Draw ────────────────────────────────────────────────────────────────────
+  function pushRect(rects: number[], x: number, y: number, w: number, h: number) {
+    // Recortado al lienzo: drawImage con origen fuera de la imagen no es fiable
+    const x0 = Math.max(0, Math.floor(x));
+    const y0 = Math.max(0, Math.floor(y));
+    const x1 = Math.min(W, Math.ceil(x + w));
+    const y1 = Math.min(H, Math.ceil(y + h));
+    if (x1 > x0 && y1 > y0) rects.push(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  // Zonas que cambian entre pasos: la moneda (cabe en su celda) y cada destello/puntos flotantes
+  // (estrellas hasta ~31 px del centro; el texto sube hasta ~47 px y mide ≲ 60 px de ancho)
+  function collectAnimatedRects(rects: number[]) {
+    rects.length = 0;
+    if (food) pushRect(rects, food.x * CELL - 2, food.y * CELL - 2, CELL + 4, CELL + 4);
+    for (const effect of effects) pushRect(rects, effect.x - 44, effect.y - 56, 88, 96);
+  }
+
+  function overlaps(rects: number[], cx: number, cy: number, size: number) {
+    for (let i = 0; i < rects.length; i += 4) {
+      if (
+        cx < rects[i] + rects[i + 2] &&
+        cx + size > rects[i] &&
+        cy < rects[i + 1] + rects[i + 3] &&
+        cy + size > rects[i + 1]
+      )
+        return true;
+    }
+    return false;
+  }
+
+  // ¿Toca esta celda (con 2 px de margen por el contorno) alguna zona que se repinta?
+  const touchesDirty = (cell: Cell) => {
+    const cx = cell.x * CELL - 2;
+    const cy = cell.y * CELL - 2;
+    return overlaps(dirtyPrev, cx, cy, CELL + 4) || overlaps(dirtyCur, cx, cy, CELL + 4);
+  };
+
+  // Restaura el fondo de cada zona y la añade al recorte activo
+  function restoreRects(context: CanvasRenderingContext2D, rects: number[]) {
+    for (let i = 0; i < rects.length; i += 4) {
+      const x = rects[i];
+      const y = rects[i + 1];
+      const w = rects[i + 2];
+      const h = rects[i + 3];
+      context.rect(x, y, w, h);
+      context.drawImage(background, x, y, w, h, x, y, w, h);
+    }
+  }
+
   function draw() {
     if (!ctx) return;
-    ctx.drawImage(background, 0, 0);
-    if (food) drawCoin(ctx, food, time);
-    drawSnake(ctx, snake, dir);
-    for (const effect of effects) drawEatEffect(ctx, effect);
+    const overlay = state === "gameover" || paused;
 
-    if (state === "gameover") {
-      const lines = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
-      if (won) drawOverlay(ctx, "¡TABLERO COMPLETO!", 48, lines);
-      else drawOverlay(ctx, "GAME OVER", 64, lines);
+    if (fullRedraw || overlay) {
+      ctx.drawImage(background, 0, 0);
+      if (food) drawCoin(ctx, food, time);
+      drawSnake(ctx, snake, dir);
+      for (const effect of effects) drawEatEffect(ctx, effect);
+
+      if (state === "gameover") {
+        const lines = [`PUNTAJE: ${score}`, "ESPACIO PARA REINICIAR"];
+        if (won) drawOverlay(ctx, "¡TABLERO COMPLETO!", 48, lines);
+        else drawOverlay(ctx, "GAME OVER", 64, lines);
+      }
+
+      if (paused) drawOverlay(ctx, "PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
+      fullRedraw = overlay; // con overlay siguen los repintados completos (la moneda anima debajo)
+      collectAnimatedRects(dirtyCur);
+      [dirtyPrev, dirtyCur] = [dirtyCur, dirtyPrev];
+      return;
     }
 
-    if (paused) drawOverlay(ctx, "PAUSA", 56, ["P / ESC PARA CONTINUAR"]);
+    // Entre pasos: restaura el fondo y repinta solo las zonas animadas (actuales y del frame anterior)
+    collectAnimatedRects(dirtyCur);
+    ctx.save();
+    ctx.beginPath();
+    restoreRects(ctx, dirtyPrev);
+    restoreRects(ctx, dirtyCur);
+    ctx.clip();
+    if (food) drawCoin(ctx, food, time);
+    drawSnake(ctx, snake, dir, touchesDirty);
+    for (const effect of effects) drawEatEffect(ctx, effect);
+    ctx.restore();
+    [dirtyPrev, dirtyCur] = [dirtyCur, dirtyPrev];
   }
 
   // ── Loop principal ──────────────────────────────────────────────────────────

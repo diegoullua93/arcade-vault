@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { connection } from "next/server";
 import type {
   Game,
   GameCategory,
@@ -42,6 +43,9 @@ export async function getGame(id: string): Promise<Game | null> {
 
 // Catálogo cacheado + estadísticas dinámicas (no se cachean: cambian con cada partida).
 export async function getGamesWithStats(): Promise<GameWithStats[]> {
+  // Marca la lectura como dinámica antes de tocar nada que use Date.now()
+  // (el cliente de Supabase lo usa al validar la sesión).
+  await connection();
   const [games, supabase] = await Promise.all([getGames(), createClient()]);
   const { data, error } = await supabase
     .from("game_stats")

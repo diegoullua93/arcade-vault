@@ -9,10 +9,9 @@ export type LeaderboardRow = {
 
 export type SaveScoreInput = {
   gameId: string;
-  playerName: string;
   score: number;
 };
 
 export type SaveScoreResult =
   | { ok: true; rank: number }
-  | { ok: false; error: "invalid" | "save_failed" };
+  | { ok: false; error: "invalid" | "save_failed" | "unauthenticated" };

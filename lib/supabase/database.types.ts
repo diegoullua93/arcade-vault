@@ -21,6 +21,7 @@ export type Database = {
           cover: string
           id: string
           long: string
+          playable: boolean
           short: string
           sort_order: number
           title: string
@@ -31,6 +32,7 @@ export type Database = {
           cover: string
           id: string
           long: string
+          playable?: boolean
           short: string
           sort_order: number
           title: string
@@ -41,9 +43,28 @@ export type Database = {
           cover?: string
           id?: string
           long?: string
+          playable?: boolean
           short?: string
           sort_order?: number
           title?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          username?: string
         }
         Relationships: []
       }
@@ -55,6 +76,7 @@ export type Database = {
           is_seed: boolean
           player_name: string
           score: number
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -63,6 +85,7 @@ export type Database = {
           is_seed?: boolean
           player_name: string
           score: number
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -71,6 +94,7 @@ export type Database = {
           is_seed?: boolean
           player_name?: string
           score?: number
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -119,6 +143,7 @@ export type Database = {
           score: number
         }[]
       }
+      is_username_available: { Args: { p_username: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never

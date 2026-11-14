@@ -119,6 +119,14 @@ Antes de empezar: leer en `node_modules/next/dist/docs/` lo relativo a Client Co
 - [ ] La fila aparece en `/juegos/<id>` y `/salon` sin reiniciar el servidor.
 - [ ] `SCORE_LIMITS.maxScore` cubre la puntuación máxima plausible del juego.
 
+**Rendimiento** (`references/performance.md`)
+
+- [ ] En `update`/`draw` no hay `forEach`, `map`, `filter`, `concat` ni spread, ni objetos o arrays creados por frame.
+- [ ] Fondo, sprites, degradados y `shadowBlur` se dibujan una vez en canvas fuera de pantalla, nunca por frame.
+- [ ] `emitHud` solo crea el objeto cuando cambia un campo; `GameScreen` no re-renderiza por frame.
+- [ ] El motor se crea una sola vez por carga y por cambio de vista; tras SALIR no quedan listeners ni `requestAnimationFrame` pendientes.
+- [ ] Medido con la CPU a 20× sobre el build de producción: la tabla (frame medio, p95, tareas largas) queda en el spec, y cada optimización de `performance.md` §2 que aplica al juego está hecha o descartada con razón en *Decisions*.
+
 **Visual (manual)**
 
 - [ ] Canvas completo, 4:3 o su proporción real, sin scroll vertical a 1440×900 y 1366×650; sin desborde horizontal a 390×844.

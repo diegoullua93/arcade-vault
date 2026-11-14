@@ -28,6 +28,7 @@ Los tipos compartidos están en `lib/games/types.ts` (`GameStatus`, `GameHud`, `
 - Teclado: `preventDefault` sobre flechas y Espacio mientras esté montado; `P`/`Escape` alternan pausa; pausa automática en `blur` de la ventana y `visibilitychange`. El estado `paused` recuerda el previo (`playing`/`dead`) y vuelve a él al reanudar.
 - Overlays dentro del canvas: `PAUSA` y `GAME OVER` (con puntaje). El resto del HUD es React.
 - El canvas mantiene su resolución interna; el escalado es solo CSS.
+- **Rendimiento** (SPEC 11, detalle y mediciones en `performance.md`): sin `forEach`/`map`/`filter`/`concat`/spread ni objetos nuevos por frame en `update`/`draw` (compactar en el sitio, reutilizar arrays); `onHudChange` sin crear el objeto si nada cambió; colisiones con distancia al cuadrado; fondo, sprites, degradados y `shadowBlur` cacheados en canvas fuera de pantalla; lo que solo cambia por eventos (tablero asentado, bloques) en una capa con contador de versión; si la escena es casi estática, saltar frames sin cambios (los skins con animación exponen `isAnimating?`; si falta, se repinta siempre).
 
 ## De referencia JS a motor TS
 

@@ -44,7 +44,7 @@ Para saber si el id ya está en el catálogo, léelo en `supabase/migrations/*_c
 
 ### 2. Contexto del proyecto
 
-Lee, en este orden: `CLAUDE.md`, `specs/05-juego-asteroids.md`, `specs/06-leaderboard-y-tabla-games.md`, `lib/games/types.ts`, `lib/games.ts`, `components/game/game-screen.tsx`, `app/juegos/[id]/jugar/actions.ts` y la estructura de `lib/games/asteroids/`. El estado real del código manda sobre lo que digan los specs.
+Lee, en este orden: `CLAUDE.md`, `specs/05-juego-asteroids.md`, `specs/06-leaderboard-y-tabla-games.md`, `lib/games/types.ts`, `lib/games.ts`, `components/game/game-screen.tsx`, `app/juegos/[id]/jugar/actions.ts`, la estructura de `lib/games/asteroids/` y `references/performance.md` (reglas de rendimiento que el motor debe cumplir). El estado real del código manda sobre lo que digan los specs.
 
 ### 3. Análisis de la fuente
 
@@ -98,6 +98,7 @@ Resume en pocas líneas: ruta del spec, decisiones tomadas, riesgos principales 
 - `/frontend-design` para cualquier UI nueva (`CLAUDE.md`).
 - Port sin cambiar reglas, números ni balance del original; constantes copiadas literalmente.
 - Motor sin React/Next, estado en clausura, `destroy()` limpio (`references/engine-contract.md`).
+- Rendimiento (`references/performance.md`): sin asignaciones por frame, lo estático en canvas fuera de pantalla y los criterios de la sección *Rendimiento* de la plantilla en el spec generado.
 - No tocar `references/`, `lib/games/asteroids/` ni la lógica de `saveScore` salvo que el spec lo justifique.
 - Validación manual + `tsc`, `lint`, `build` y `git grep`; el repo no tiene test runner.
 - Un spec por juego: no portar dos juegos en el mismo spec.
